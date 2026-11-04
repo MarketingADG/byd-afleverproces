@@ -28,6 +28,25 @@ const OPSLAG_IMPORT = "byd-afleverproces-import-v1";
 const OPSLAG_PREMIE = "byd-afleverproces-premie-v3";
 const OPSLAG_PREMIESOORT = "byd-afleverproces-premiesoort-v1";
 
+/* AVG-opruiming (2026-11-04). Op 4 november kon dit publieke prototype via "Verbinden"
+   echte verkochte orders uit de offertemodule in de browser zetten. Die koppeling is eraf.
+   Dit wist bij elk laden alsnog het login-token en elke order die uit de offertemodule
+   kwam, zodat er in geen enkele browser echte klantgegevens achterblijven. Laten staan tot
+   v0.1 met echte logins live is. */
+(function avgOpruimen() {
+  try {
+    localStorage.removeItem("byd-aflever-koppeling");
+    const r = localStorage.getItem(OPSLAG);
+    if (!r) return;
+    const orders = JSON.parse(r);
+    if (!Array.isArray(orders)) return;
+    const schoon = orders.filter(o => o && o.bron !== "offertemodule");
+    if (schoon.length !== orders.length) localStorage.setItem(OPSLAG, JSON.stringify(schoon));
+  } catch (e) {
+    try { localStorage.removeItem(OPSLAG); } catch (e2) { }
+  }
+})();
+
 function dag(n) { return plusDagen(naarIso(vandaag()), n); }
 function moment(n, tijd = "10:00") { return `${dag(n)}T${tijd}`; }
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Briefje handelsauto · Afleverproces BYD Groningen</title>
-<link rel="stylesheet" href="css/huisstijl.css?v=20261104b">
+<link rel="stylesheet" href="css/huisstijl.css?v=20261104c">
 <style>
   /* A4 staand, alleen zwart: scheelt inkt. Het logo gaat ook naar grijs. */
   @page { size: A4 portrait; margin: 0; }
@@ -29,9 +29,9 @@
 <body>
 <div class="knoppen"><button onclick="print()">Opslaan als pdf of printen</button><span>Kies in het printvenster "Opslaan als pdf" om hem te downloaden.</span></div>
 <div id="vel"></div>
-<script src="js/proces.js?v=20261104b"></script>
-<script src="js/demo-data.js?v=20261104b"></script>
-<script src="js/ui.js?v=20261104b"></script>
+<script src="js/proces.js?v=20261104c"></script>
+<script src="js/demo-data.js?v=20261104c"></script>
+<script src="js/ui.js?v=20261104c"></script>
 <script>
   const o = laadOrders().find(x => x.id === new URLSearchParams(location.search).get("id"));
   const lang = iso => { const d = naarDatum(iso); return `${d.getDate()} ${["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"][d.getMonth()]} ${d.getFullYear()}`; };

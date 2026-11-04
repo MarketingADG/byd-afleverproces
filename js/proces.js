@@ -24,6 +24,20 @@ const VOORRAAD = {
   bestelling: "Niet op voorraad, bestellen"
 };
 
+/* Verkoopkanaal, met de schrijfwijze die BYD in het Rebate-rapport eist (tabblad Explanation). */
+const KANALEN = {
+  "particulier-koop": "Particulier, koop",
+  "particulier-lease": "Particulier, private lease",
+  "zakelijk-koop": "Zakelijk, koop",
+  "zakelijk-lease": "Zakelijk, lease",
+  verhuur: "Verhuur",
+  demo: "Demo"
+};
+const KANAAL_BYD = {
+  "particulier-koop": "Private Purchase", "particulier-lease": "Private Lease", "zakelijk-koop": "Business Purchase",
+  "zakelijk-lease": "Business Lease", verhuur: "RaC", demo: "Retail Demo"
+};
+
 const MODELLEN = ["DOLPHIN SURF", "DOLPHIN G", "ATTO 2", "ATTO 2 DM-i", "ATTO 3 EVO", "SEAL",
   "SEAL 6 DM-i", "SEAL U", "SEAL U DM-i", "SEALION 7"];
 
@@ -119,6 +133,10 @@ function puntenVoor(o, nr) {
 
     if (o.type === "gebruikt") add("Auto", { key: "model", label: "Merk en model", soort: "tekst", pad: "auto.model" });
     else add("Auto", { key: "model", label: "Model", soort: "keuze", pad: "auto.model", opties: Object.fromEntries(MODELLEN.map(m => [m, m])) });
+    if (nieuw) {
+      add("Auto", { key: "uitvoering", label: "Uitvoering", soort: "tekst", pad: "auto.uitvoering", verplicht: false, hint: "Bijvoorbeeld Boost of Comfort. Nodig voor het premierapport aan BYD" });
+      add("Auto", { key: "kleur", label: "Kleur", soort: "tekst", pad: "auto.kleur", verplicht: false });
+    }
     if (o.voorraad === "bestelling" && nieuw) {
       add("Auto", { key: "bgpc", label: "Besteld in BGPC", soort: "vink" });
       add("Auto", { key: "chassis", label: "Chassisnummer", soort: "tekst", pad: "auto.chassis", verplicht: false, hint: "Koppelen zodra bekend" });
@@ -137,7 +155,11 @@ function puntenVoor(o, nr) {
     }
     add("Auto", { key: "acc_info", label: "Accessoires", soort: "info", tekst: "Vult de serviceadviseur in bij fase 2.", verplicht: false });
 
-    if (nieuw) add("Premie en deal", { key: "premie", label: "Premie", soort: "premiekeuze", pad: "premie.id", verplicht: false });
+    if (nieuw) {
+      add("Premie en deal", { key: "premie", label: "Premie", soort: "premiekeuze", pad: "premie.id", verplicht: false });
+      add("Premie en deal", { key: "kanaal", label: "Verkoopkanaal", soort: "keuze", pad: "kanaal", opties: KANALEN, verplicht: false, hint: "Nodig voor het premierapport aan BYD" });
+      add("Premie en deal", { key: "verkoopprijs", label: "Verkoopprijs inclusief btw", soort: "getal", pad: "verkoopprijs", eenheid: "€", verplicht: false });
+    }
     add("Premie en deal", { key: "deal", label: "Speciale deal", soort: "janee", pad: "heeftDeal", verplicht: false, hint: "Eigen afspraak met de klant, buiten de premielijst" });
     if (o.heeftDeal) {
       add("Premie en deal", { key: "deal_oms", label: "Omschrijving deal", soort: "tekst", pad: "deal.omschrijving" });
