@@ -164,7 +164,8 @@ textarea.invoer{min-height:68px;resize:vertical;line-height:1.45}
 .terug:hover{text-decoration:underline;text-underline-offset:2px}
 .order-titel{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
 .order-titel h1{font-size:var(--t-titel);font-weight:800;letter-spacing:-.02em;line-height:1.2}
-.order-sub{margin-top:2px}
+/* de auto moet in één oogopslag duidelijk zijn */
+.order-sub{margin-top:4px;font-size:16px;font-weight:700}
 .feiten{
   display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);
   border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:16px
@@ -283,7 +284,8 @@ details.opgelost .items{margin-top:10px}
 .taken-groep h2 .n.rood{background:var(--st-rood);border-color:var(--st-rood);color:#fff}
 .rijen{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .taak{
-  display:grid;grid-template-columns:8px minmax(0,1fr) minmax(0,1.6fr) 150px;gap:16px;align-items:center;
+  /* laatste kolom op auto, anders valt "Begonnen 8 dagen geleden" buiten de 150px en snijdt hij af */
+  display:grid;grid-template-columns:8px minmax(0,1fr) minmax(0,1.6fr) auto;gap:16px;align-items:center;
   padding:12px 16px;text-decoration:none;color:var(--ink);border-top:1px solid var(--line);transition:background var(--duur-snel)
 }
 .rijen>.taak:first-child{border-top:none}
@@ -398,7 +400,7 @@ details.opgelost .items{margin-top:10px}
 .wp-blok .wb4{font-size:var(--t-klein);margin-top:3px}
 .wp-taken{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:28px}
 .wp-taken .taken-groep{margin-top:0}
-.wp-taken .taak{grid-template-columns:8px minmax(0,1fr) minmax(0,1fr) 150px}
+.wp-taken .taak{grid-template-columns:8px minmax(0,1fr) minmax(0,1fr) auto}
 .taak.met-knop{grid-template-columns:8px minmax(0,1fr) auto auto}
 .taak.met-knop .wie{text-decoration:none}
 .taak.met-knop .wie:hover{text-decoration:underline}
@@ -520,3 +522,16 @@ details.opgelost .items{margin-top:10px}
 .melding.slot svg,.melding.met-icoon svg{flex:none;margin-top:1px}
 .fase.alleen-lezen .melding.met-icoon{background:var(--surface);border:1px solid var(--line)}
 .fase.op-slot .melding.slot{background:var(--surface);border:1px solid var(--line)}
+
+/* ---------- feedback 2026-11-04: reacties werkplaats, toevoegingen, uitstel ---------- */
+.item .reactie{margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px}
+.item .meta.rood{color:var(--st-rood);font-weight:600}
+.zij-form .rij-knoppen{display:flex;gap:8px}
+.item .reactie-form{margin-top:10px;padding-top:10px}
+.taak .beoordeel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.taak .beoordeel .of{font-size:var(--t-klein);color:var(--muted);white-space:nowrap}
+.taak .beoordeel .invoer{width:150px}
+.taak.beoordeel-rij{grid-template-columns:8px minmax(0,1fr) minmax(0,1.2fr) auto}
+@media (max-width:1100px){.taak.beoordeel-rij{grid-template-columns:8px 1fr}.taak.beoordeel-rij>*:nth-child(n+3){grid-column:2}.taak .beoordeel{justify-content:flex-start}}
+.venster .wp-opmerking{margin:16px 20px 0;padding-top:14px}
+#wp_meldingen .taken-groep:first-child{margin-top:0}

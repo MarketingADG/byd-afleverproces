@@ -136,7 +136,11 @@ function puntHtml(p, mag) {
     case "vink":
       labelFor = false;
       if (klaar) { meta = wieWanneer; if (mag) ctl = `<button type="button" class="knop" id="${id}" data-terug="${p.key}" ${dl}>Terugzetten</button>`; }
-      else if (mag) ctl = `<button type="button" class="knop" id="${id}" data-vink="${p.key}" ${dl}>Afvinken</button>`;
+      else if (mag) {
+        const geblokt = actieGeblokt(p.key);
+        if (geblokt) meta = geblokt;
+        ctl = `<button type="button" class="knop ${p.key === "wp_klaar" ? "donker" : ""} ${geblokt ? "uit" : ""}" id="${id}" data-vink="${p.key}" ${dl} ${geblokt ? 'aria-disabled="true"' : ""}>${p.key === "wp_klaar" ? "Werkplaatsklaar" : "Afvinken"}</button>`;
+      }
       break;
     case "actie":
       labelFor = false;
@@ -170,6 +174,16 @@ function puntHtml(p, mag) {
       meta = o.accessoires.length ? "" : "Geen accessoires.";
       onder = (o.accessoires.length ? `<ul class="lijstje">${o.accessoires.map((a, i) => `<li><span>${esc(a.naam)}</span>${mag ? `<button type="button" class="knop link" data-weg="${i}">Verwijderen</button>` : ""}</li>`).join("")}</ul>` : "")
         + (mag ? `<div class="toevoegen"><label class="vh" for="nieuw_acc">Accessoire toevoegen</label><input id="nieuw_acc" class="invoer" placeholder="Bijvoorbeeld: trekhaak, inclusief montage"><button type="button" class="knop" id="acc_toevoegen">Toevoegen</button></div>` : "");
+      if (!onder) breed = false;
+      break;
+    }
+    case "regels": {
+      breed = true; labelFor = false;
+      const regels = o.werkplaatsregels || [];
+      const magRegels = mag && !p.alleenLezen;
+      if (!regels.length && p.alleenLezen) meta = "Geen regels voor de werkplaats.";
+      onder = (regels.length ? `<ul class="lijstje">${regels.map((r, i) => `<li><span>${esc(r)}</span>${magRegels ? `<button type="button" class="knop link" data-regel-weg="${i}">Verwijderen</button>` : ""}</li>`).join("")}</ul>` : "")
+        + (magRegels ? `<div class="toevoegen"><label class="vh" for="nieuwe_regel">Regel toevoegen</label><input id="nieuwe_regel" class="invoer" placeholder="Bijvoorbeeld: krasje linksvoor bijlakken"><button type="button" class="knop" id="regel_toevoegen">Toevoegen</button></div>` : "");
       if (!onder) breed = false;
       break;
     }
@@ -284,6 +298,12 @@ function actieGeblokt(key) {
   if (key === "binnen" && !(o.afleverdatum && o.aflevertijd)) return "Plan eerst de afleverdatum en het tijdsblok. Die leg je vast bij binnenkomst.";
   if (key === "factuur" && !(o.auto.kenteken && o.afleverdatum && o.aflevertijd)) return "Kan pas als kenteken, afleverdatum en tijdsblok er zijn.";
   if (key === "afgeleverd" && faseStatus(o, 3) !== "groen") return "Kan pas als fase 3 rond is: kenteken, afspraak en factuur.";
+  /* werkplaatsklaar is de afsluiting van fase 4: eerst inplannen, laden en tanken */
+  if (key === "wp_klaar") {
+    const open = openPunten(o, 4).filter(p => p.key !== "wp_klaar");
+    if (open.length) return `Kan pas als de rest van de werkplaats klaar is: ${open.map(p => p.label.toLowerCase()).join(", ")}.`;
+    if (wachtOpVerkoper(o).length) return `Kan pas na de reactie van ${o.verkoper} op de opmerking van de werkplaats.`;
+  }
   return "";
 }
 
@@ -317,7 +337,6 @@ function faseHtml(f) {
     const wp = o.opmerkingen.filter(x => x.open && [2, 4].includes(x.fase));
     if (wp.length) m.push(`<div class="melding oranje"><b>Open punten van de werkplaats</b><br>${wp.map(x => esc(x.tekst)).join("<br>")}</div>`);
   }
-  if (f.nr === 3) m.push(`<div class="melding">Loopt tegelijk met fase 2. De werkplaats kan beginnen zodra de auto binnen is.</div>`);
   if (f.nr === 3 || f.nr === 5) {
     const d = verkoopDelen(o);
     m.push(`<div class="balk-blok"><div class="veld-lbl">Voortgang verkoop en aflevering</div>${delenBalk(d, "Verkoop en aflevering")}<div class="delen-labels">${d.map(x => `<span class="${x.klaar ? "af" : x.open ? "nu" : ""}">${x.nr}. ${esc(x.label)}</span>`).join("")}</div></div>`);
@@ -339,6 +358,15 @@ function faseHtml(f) {
   if (f.nr === 5 && o.vink.afgeleverd && o.heeftInruil) voet = `<div class="fase-voet">
       <a class="knop" href="briefje-handelsauto.html?id=${o.id}" target="_blank">Briefje handelsauto (A4)</a>
       <span>Voor achter de ruit van de inruil ${esc(o.inruil?.kenteken || "")}.</span></div>`;
+  /* aflevering uitstellen: kan niet doorgaan (betaling, klant wil later), administratie krijgt direct een melding */
+  else if (f.nr === 5 && !o.vink.afgeleverd && o.afleverdatum && mag) voet = `<div class="fase-voet stapel">
+      <button type="button" class="knop" id="uitstel_toon" aria-expanded="false">Aflevering uitstellen</button>
+      <div class="wijziging" id="uitstel_form" hidden>
+        <label class="vh" for="uitstel_datum">Nieuwe afleverdatum</label><input id="uitstel_datum" class="invoer half" type="date" min="${plusDagen(o.afleverdatum, 1)}">
+        <label class="vh" for="uitstel_blok">Nieuw tijdsblok</label><select id="uitstel_blok" class="invoer half">${Object.keys(AFLEVERBLOKKEN).map(k => `<option value="${k}" ${k === o.aflevertijd ? "selected" : ""}>${blokTekst(k)}</option>`).join("")}</select>
+        <label class="vh" for="uitstel_reden">Reden</label><input id="uitstel_reden" class="invoer" placeholder="Bijvoorbeeld: betaling nog niet rond">
+        <button type="button" class="knop donker" id="uitstel_sturen">Uitstellen, administratie krijgt melding</button>
+      </div></div>`;
   if (f.nr === 3) voet = `<div class="fase-voet">
       <button type="button" class="knop" id="agenda" ${o.afleverdatum && o.aflevertijd ? "" : "disabled"}>Zet in agenda</button>
       <a class="knop" href="briefje.html?id=${o.id}" target="_blank">Print briefje voorruit</a></div>`;
@@ -364,8 +392,53 @@ function zijHtml() {
   const docs = Object.values(o.vink).filter(v => v.bestand);
   const log = [...o.log].sort((a, b) => b.op.localeCompare(a.op));
   const fase = faseInfo(gekozen);
-  const item = m => `<div class="item ${m.open ? "" : "af"}"><div class="tekst">${esc(m.tekst)}</div>
-    <div class="meta"><span>Fase ${faseLabel(m.fase)} · ${esc(m.auteur)}, ${tijdstip(m.op)}</span>${m.open ? `<button type="button" class="knop link" data-opgelost="${m.id}">Opgelost</button>` : ""}</div></div>`;
+  /* een opmerking van de serviceadviseur is een vraag aan de verkoper: reactie verplicht,
+     wie aan zet is wisselt per reactie, en de werkplaats kan intussen niet verder */
+  const item = m => {
+    const aanZet = vraagAanZet(m);
+    const reacties = (m.reacties || []).map(r => `<div class="reactie"><div class="tekst">${esc(r.tekst)}</div><div class="meta"><span>${esc(r.door)}, ${tijdstip(r.op)}</span></div></div>`).join("");
+    let voet = "";
+    if (m.open && !aanZet) voet = `<div class="meta"><button type="button" class="knop link" data-opgelost="${m.id}">Opgelost</button></div>`;
+    if (aanZet) {
+      const magNu = aanZet === "verkoper" ? ["verkoper", "afleverspecialist", "manager"].includes(ik.rol) : ["serviceadviseur", "manager"].includes(ik.rol);
+      const status = aanZet === "verkoper"
+        ? `De werkplaats kan pas verder na een reactie van ${esc(o.verkoper)}.`
+        : `${esc(persoonVanRol(o, "serviceadviseur"))} zet dit op opgelost als het echt is opgelost.`;
+      voet = `<div class="meta rood">${status}</div>` + (magNu ? `
+        <form class="zij-form reactie-form" data-reactie="${m.id}">
+          <label class="vh" for="re_${m.id}">Reactie</label>
+          <textarea id="re_${m.id}" name="tekst" class="invoer" placeholder="${aanZet === "verkoper" ? "Je reactie komt direct in de takenlijst van de serviceadviseur" : "Antwoord aan de verkoper"}"></textarea>
+          <div class="rij-knoppen"><button class="knop">Reageren</button><button type="button" class="knop" data-opgelost="${m.id}">Opgelost</button></div>
+        </form>` : "");
+    }
+    return `<div class="item ${m.open ? "" : "af"}"><div class="tekst">${esc(m.tekst)}</div>
+      <div class="meta"><span>Fase ${faseLabel(m.fase)} · ${esc(m.auteur)}, ${tijdstip(m.op)}${m.auteurRol === "serviceadviseur" ? " · werkplaats" : ""}</span></div>
+      ${reacties}${voet}</div>`;
+  };
+
+  /* toevoegingen: de klant wil er na de verkoop nog iets bij (feedback Mark, punt 4) */
+  const toevoegingen = o.toevoegingen || [];
+  const magToevoegen = ["verkoper", "afleverspecialist", "manager"].includes(ik.rol) && !o.concept && !o.vink.afgeleverd;
+  const toevoegingItem = t => {
+    let st = "";
+    if (t.status === "nieuw") st = `<div class="meta">Wacht op ${esc(persoonVanRol(o, "serviceadviseur"))}: past dit vóór de aflevering?</div>`;
+    if (t.status === "past") st = `<div class="meta">Past vóór de aflevering. Bevestigd door ${esc(t.beoordeeldDoor)}, ${tijdstip(t.beoordeeldOp)}.</div>`;
+    if (t.status === "past-niet") {
+      const vroegst = vroegsteNaGereed(t.gereed);
+      const knelt = o.afleverdatum && o.afleverdatum < vroegst && !o.vink.afgeleverd;
+      st = `<div class="meta ${knelt ? "rood" : ""}">Past niet: auto klaar op ${datumKort(t.gereed)}, vroegste aflevering ${datumKort(vroegst)} (48 uur later).${knelt ? ` Kies een nieuwe afleverdatum, de huidige (${datumKort(o.afleverdatum)}) is te vroeg.` : ""}</div>`;
+    }
+    return `<div class="item ${t.status === "nieuw" ? "" : "af"}"><div class="tekst">${esc(t.tekst)}</div>
+      <div class="meta"><span>${esc(t.door)}, ${tijdstip(t.op)}</span></div>${st}</div>`;
+  };
+  const toevoegingenBlok = `<section class="zij-blok"><h2>Toevoegingen${toevoegingen.length ? ` <span class="n">${toevoegingen.length}</span>` : ""}</h2>
+      ${toevoegingen.length ? `<div class="items">${[...toevoegingen].reverse().map(toevoegingItem).join("")}</div>` : `<p class="zij-leeg">Niets bijgekomen na de verkoop.</p>`}
+      ${magToevoegen ? `<form class="zij-form" id="f_toevoeging">
+        <label class="veld-lbl" for="toe_tekst">De klant wil er iets bij</label>
+        <textarea id="toe_tekst" name="tekst" class="invoer" required placeholder="Bijvoorbeeld: all-season banden"></textarea>
+        <button class="knop">Naar de serviceadviseur</button>
+      </form>` : ""}
+    </section>`;
 
   return `
     <section class="zij-blok"><h2>Open punten${open.length ? ` <span class="n">${open.length}</span>` : ""}</h2>
@@ -373,10 +446,11 @@ function zijHtml() {
       ${opgelost.length ? `<details class="opgelost"><summary>${opgelost.length} opgelost</summary><div class="items">${opgelost.map(item).join("")}</div></details>` : ""}
       <form class="zij-form" id="f_opmerking">
         <label class="veld-lbl" for="opm_tekst">Open punt bij fase ${faseLabel(fase.nr)} · ${fase.naam}</label>
-        <textarea id="opm_tekst" name="tekst" class="invoer" required placeholder="Wat moet er nog gebeuren?"></textarea>
+        <textarea id="opm_tekst" name="tekst" class="invoer" required placeholder="${ik.rol === "serviceadviseur" ? `Jouw opmerking komt direct in de takenlijst van ${esc(o.verkoper)}` : "Wat moet er nog gebeuren?"}"></textarea>
         <button class="knop">Plaatsen</button>
       </form>
     </section>
+    ${toevoegingenBlok}
     <section class="zij-blok"><h2>Klantcontact</h2>
       ${timer ? `<div class="melding oranje">${esc(timer.tekst)}. Taak voor ${esc(persoonVanRol(o, timer.wie))}. Leg na het gesprek vast of de datum blijft of welke nieuwe datum is afgesproken.</div>` : ""}
       ${levertijdVoorbij(o) ? `<div class="melding rood"><b>Verwachte leverdatum ${-dagenTot(o.levertijd)} dagen voorbij.</b> Spreek een nieuwe datum af met de klant.</div>` : ""}
@@ -418,15 +492,18 @@ function teken() {
       <a class="terug" href="${startpagina(ik.rol)}">${icoon("pijl-links", 16)}${MENU[MENU_PER_ROL[ik.rol][0]][1]}</a>
       <div class="order-titel"><h1>${esc(klantNaam(o))}</h1>${o.concept ? pil("grijs", "Concept") : pil(status, klaar ? "Afgeleverd" : STATUS_TEKST[status])}
         ${magVerwijderen ? `<button type="button" class="knop link verwijder" id="verwijderen">${o.concept ? "Concept" : "Order"} verwijderen</button>` : ""}</div>
-      <p class="order-sub">${esc(o.auto.model || "Model nog kiezen")} · ${TYPES[o.type]} · Order ${esc(o.ordernummer || "nog geen nummer")}</p>
+      <p class="order-sub">${esc([autoNaam(o) || "Model nog kiezen", o.auto.kenteken || (meldcode(o) ? "meldcode " + meldcode(o) : ""), o.type === "nieuw" ? "" : TYPES[o.type]].filter(Boolean).join(" · "))}</p>
       <dl class="feiten">
         ${feit("Verkoper", esc(o.verkoper))}
+        ${feit("Order", esc(o.ordernummer || "Nog geen nummer"))}
         ${feit("Levertijd", o.levertijd ? datumKort(o.levertijd) : "Nog invullen")}
         ${feit("Aflevering", o.afleverdatum ? datumKort(o.afleverdatum) + (o.aflevertijd ? ", " + o.aflevertijd.replace(":", ".") : "") : "Nog niet gepland")}
         ${feit("Te betalen", o.te_betalen != null && o.te_betalen !== "" ? bedrag(o.te_betalen) : "Nog invullen")}
         ${feit("Mastercare", o.mastercare === true ? "Ja" : o.mastercare === false ? "Nee" : "Nog kiezen")}
-        ${feit("Kenteken", esc(o.auto.kenteken || "Nog niet bekend"))}
       </dl>
+      ${wachtOpVerkoper(o).length ? `<div class="melding rood"><b>De werkplaats kan niet verder.</b> ${wachtOpVerkoper(o).length === 1 ? "Een opmerking van de werkplaats wacht" : wachtOpVerkoper(o).length + " opmerkingen van de werkplaats wachten"} op een reactie van ${esc(o.verkoper)}, zie Open punten.</div>` : ""}
+      ${toevoegingProbleem(o) ? `<div class="melding rood"><b>De afleverdatum past niet meer.</b> Door de toevoeging is de auto pas ${datumKort(toevoegingProbleem(o).gereed)} klaar; vroegste aflevering ${datumKort(vroegsteNaGereed(toevoegingProbleem(o).gereed))}. Wijzig de datum in fase 3 of stel de aflevering uit in fase 5.</div>` : ""}
+      ${o.uitgesteld && !o.uitgesteld.verwerkt ? `<div class="melding oranje">Aflevering uitgesteld door ${esc(o.uitgesteld.door)}: was ${datumKort(o.uitgesteld.van)}, wordt ${datumKort(o.afleverdatum)}${o.uitgesteld.reden ? `. Reden: ${esc(o.uitgesteld.reden)}` : ""}. De administratie heeft een melding.</div>` : ""}
       ${wis ? `<div class="melding">Klantgegevens gaan er op ${datumKort(wis)} uit, 30 dagen na aflevering. ${o.nps != null ? `NPS ${o.nps}, review ${o.review} van 5.` : `NPS en review komen vanaf ${datumKort(npsDatum(o))} binnen.`}</div>` : ""}
     </div>
     <nav class="stappen" aria-label="Fases">${stappen.map((f, i) => {
@@ -482,6 +559,8 @@ hoofd.addEventListener("change", e => {
       if (d.pad === "inruil.kenteken") { delete o.inruil.merk; delete o.inruil.model; delete o.inruil.rdw; }
       if (d.pad === "auto.model" && o.premie && o.premie.model !== w) delete o.premie;
     }, `${d.label} gewijzigd`);
+    if (d.pad === "auto.kenteken" && t.value && heeftTrekhaak(o) && !o.vink.witteplaat)
+      toast(`Trekhaak op de order: ${persoonVanRol(o, "serviceadviseur")} krijgt direct de taak om de witte kentekenplaat te bestellen.`);
     /* merk en model van de inruil komen uit de open data van de RDW */
     if (d.pad === "inruil.kenteken" && w) rdwAuto(w).then(auto => {
       if (o.inruil.kenteken !== w) return;
@@ -525,6 +604,7 @@ hoofd.addEventListener("click", e => {
   }
   if (d.janee) { wijzig(() => zet(o, d.janee, d.w === "1"), `${d.label}: ${d.w === "1" ? "ja" : "nee"}`); return; }
   if (d.vink) {
+    if (actieGeblokt(d.vink)) { toast(actieGeblokt(d.vink)); return; }
     wijzig(() => { o.vink[d.vink] = { door: ik.naam, op: nu() }; }, `${d.label} afgevinkt`);
     if (d.vink === "wp_klaar") toast("WP-klaar. De afspraak in de Outlook-agenda van bydgroningen@ gaat straks vanzelf naar WP-klaar.");
     return;
@@ -539,17 +619,48 @@ hoofd.addEventListener("click", e => {
   }
   if (d.terug) { wijzig(() => delete o.vink[d.terug], `${d.label} teruggezet`); o.log[o.log.length - 1].terug = true; bewaar(orders); return; }
   if (d.weg) { wijzig(() => o.accessoires.splice(Number(d.weg), 1), "Accessoire verwijderd"); return; }
-  if (d.opgelost) { wijzig(() => { o.opmerkingen.find(m => m.id == d.opgelost).open = false; }, "Open punt opgelost"); return; }
+  if (d.regelWeg != null) { wijzig(() => o.werkplaatsregels.splice(Number(d.regelWeg), 1), "Regel voor de werkplaats verwijderd"); return; }
+  if (d.opgelost) {
+    const m = o.opmerkingen.find(x => x.id == d.opgelost);
+    wijzig(() => { m.open = false; }, m.auteurRol === "serviceadviseur" ? "Opmerking van de werkplaats opgelost" : "Open punt opgelost");
+    if (m.auteurRol === "serviceadviseur") toast("Opgelost. De werkplaats kan weer verder.", "groen");
+    return;
+  }
   if (d.heropen) { wijzig(() => { (o.heropend ??= {})[nrUit(d.heropen)] = { door: ik.naam, op: nu() }; }, `Fase ${faseLabel(nrUit(d.heropen))} heropend`); return; }
   if (d.afronden) { wijzig(() => { delete o.heropend[d.afronden]; }, `Fase ${faseLabel(nrUit(d.afronden))} opnieuw afgerond`); return; }
   if (t.id === "acc_toevoegen") {
     const naam = document.getElementById("nieuw_acc").value.trim(); if (!naam) return;
     wijzig(() => o.accessoires.push({ naam }), `Accessoire ${naam} toegevoegd`); return;
   }
+  if (t.id === "regel_toevoegen") {
+    const regel = document.getElementById("nieuwe_regel").value.trim(); if (!regel) return;
+    wijzig(() => (o.werkplaatsregels ??= []).push(regel), `Regel voor de werkplaats: ${regel}`);
+    toast("De serviceadviseur ziet de regel bij fase 2 en in zijn werkplaatsscherm.");
+    return;
+  }
+  if (t.id === "uitstel_toon") {
+    const vorm = document.getElementById("uitstel_form");
+    vorm.hidden = !vorm.hidden;
+    t.setAttribute("aria-expanded", String(!vorm.hidden));
+    return;
+  }
+  if (t.id === "uitstel_sturen") {
+    const datum = document.getElementById("uitstel_datum").value, blok = document.getElementById("uitstel_blok").value;
+    const reden = document.getElementById("uitstel_reden").value.trim();
+    if (!datum) { toast("Kies de nieuwe afleverdatum."); return; }
+    if (datum <= o.afleverdatum) { toast(`Uitstellen kan alleen naar later: kies een dag na ${datumKort(o.afleverdatum)}.`); return; }
+    const van = `${datumKort(o.afleverdatum)}, ${blokTekst(o.aflevertijd)}`;
+    wijzig(() => {
+      o.uitgesteld = { van: o.afleverdatum, vanTijd: o.aflevertijd, naar: datum, reden, door: ik.naam, op: nu() };
+      o.afleverdatum = datum; o.aflevertijd = blok;
+    }, `Aflevering uitgesteld: ${van} wordt ${datumKort(datum)}, ${blokTekst(blok)}${reden ? `. Reden: ${reden}` : ""}. Melding naar de administratie`);
+    toast(`Uitgesteld naar ${datumKort(datum)}. De administratie (Marieke Hoek) ziet de melding en de nieuwe datum direct; de agenda-afspraak schuift mee.`);
+    return;
+  }
   if (t.id === "afwijking_melden") {
     const tekst = document.getElementById("afwijking").value.trim(); if (!tekst) return;
-    wijzig(() => o.opmerkingen.push({ id: Date.now(), fase: 2, tekst, open: true, auteur: ik.naam, op: nu() }), "Afwijking gemeld");
-    toast(`Melding naar ${o.verkoper} en Nils Bullinga.`); return;
+    wijzig(() => o.opmerkingen.push({ id: Date.now(), fase: 2, tekst, open: true, auteur: ik.naam, auteurRol: ik.rol, op: nu() }), "Afwijking gemeld");
+    toast(`Staat direct in de takenlijst van ${o.verkoper}; de afleverspecialist ziet hem ook. De werkplaats kan verder na zijn reactie.`); return;
   }
   if (t.id === "agenda") agendaBestand();
   if (t.id === "wijz_sturen") {
@@ -579,13 +690,32 @@ hoofd.addEventListener("click", e => {
 
 hoofd.addEventListener("keydown", e => {
   if (e.key === "Enter" && e.target.id === "nieuw_acc") { e.preventDefault(); document.getElementById("acc_toevoegen").click(); }
+  if (e.key === "Enter" && e.target.id === "nieuwe_regel") { e.preventDefault(); document.getElementById("regel_toevoegen").click(); }
 });
 
 hoofd.addEventListener("submit", e => {
   e.preventDefault();
-  const tekst = new FormData(e.target).get("tekst");
+  const tekst = (new FormData(e.target).get("tekst") || "").trim();
+  if (e.target.dataset.reactie) {
+    const m = o.opmerkingen.find(x => x.id == e.target.dataset.reactie);
+    if (!tekst) { toast("Schrijf eerst een reactie."); return; }
+    const kant = vraagAanZet(m);
+    wijzig(() => (m.reacties ??= []).push({ door: ik.naam, rol: kant, op: nu(), tekst }),
+      kant === "verkoper" ? `Reactie aan de werkplaats: ${tekst}` : `Reactie van de werkplaats: ${tekst}`);
+    toast(kant === "verkoper"
+      ? `Je reactie staat in de takenlijst van ${persoonVanRol(o, "serviceadviseur")}. Hij zet het punt op opgelost als het echt is opgelost.`
+      : `Reactie staat in de takenlijst van ${o.verkoper}.`);
+    return;
+  }
+  if (e.target.id === "f_toevoeging") {
+    if (!tekst) return;
+    wijzig(() => (o.toevoegingen ??= []).push({ id: Date.now(), tekst, door: ik.naam, op: nu(), status: "nieuw" }), `Toevoeging aan de order: ${tekst}`);
+    toast(`${persoonVanRol(o, "serviceadviseur")} ziet de toevoeging direct bij zijn taken en beoordeelt of hij vóór de aflevering past.`);
+    return;
+  }
   if (e.target.id === "f_opmerking") {
-    wijzig(() => o.opmerkingen.push({ id: Date.now(), fase: gekozen, tekst, open: true, auteur: ik.naam, op: nu() }), "Open punt geplaatst");
+    wijzig(() => o.opmerkingen.push({ id: Date.now(), fase: gekozen, tekst, open: true, auteur: ik.naam, auteurRol: ik.rol, op: nu() }), "Open punt geplaatst");
+    if (ik.rol === "serviceadviseur") toast(`Staat direct in de takenlijst van ${o.verkoper}. Hij ziet erbij dat de werkplaats wacht op zijn reactie.`);
   }
   if (e.target.id === "f_contact") {
     const fd = new FormData(e.target);

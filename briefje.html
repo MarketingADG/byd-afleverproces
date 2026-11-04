@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Briefje voorruit · Afleverproces BYD Groningen</title>
-<link rel="stylesheet" href="css/huisstijl.css?v=20261028h">
+<link rel="stylesheet" href="css/huisstijl.css?v=20261104b">
 <style>
   @page { size: A5 landscape; margin: 0; }
   body { background: #e9e9ec; margin: 0; font-family: var(--font, "Sofia Pro", sans-serif); color: #000; }
@@ -33,9 +33,9 @@
 <body>
 <div class="knoppen"><button onclick="print()">Printen op A5</button></div>
 <div id="vel"></div>
-<script src="js/proces.js?v=20261028h"></script>
-<script src="js/demo-data.js?v=20261028h"></script>
-<script src="js/ui.js?v=20261028h"></script>
+<script src="js/proces.js?v=20261104b"></script>
+<script src="js/demo-data.js?v=20261104b"></script>
+<script src="js/ui.js?v=20261104b"></script>
 <script>
   const o = laadOrders().find(x => x.id === new URLSearchParams(location.search).get("id"));
   const lang = iso => { const d = naarDatum(iso); return `${["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"][d.getDay()]} ${d.getDate()} ${["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"][d.getMonth()]}`; };

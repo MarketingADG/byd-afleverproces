@@ -107,6 +107,8 @@ function puntenVoor(o, nr) {
     add("Order", { key: "mastercare", label: "Mastercare", soort: "janee", pad: "mastercare" });
     add("Order", { key: "ott", label: "OTT-tenaamstelling", soort: "janee", pad: "ott" });
     if (o.ott) add("Order", { key: "ott_via", label: "Via wie wordt de OTT opgevraagd", soort: "tekst", pad: "ott_via" });
+    add("Order", { key: "bnp", label: "Financiering via BNP Paribas", soort: "janee", pad: "bnp" });
+    if (o.bnp) add("Order", { key: "bnp_contract", label: "BNP-contract", soort: "upload", verplicht: false, hint: "Upload zodra BNP het contract stuurt; moet er zijn vóór de aflevering" });
 
     add("Klant", { key: "k_aanhef", label: "Aanhef", soort: "keuze", pad: "klant.aanhef", opties: { "Dhr.": "Dhr.", "Mevr.": "Mevr.", "Fam.": "Fam." } });
     add("Klant", { key: "k_naam", label: "Achternaam", soort: "tekst", pad: "klant.naam" });
@@ -149,10 +151,12 @@ function puntenVoor(o, nr) {
       add("Inruil", { key: "i_boekwaarde", label: "Boekwaarde", soort: "getal", pad: "inruil.boekwaarde", eenheid: "€" });
       add("Inruil", { key: "i_opm", label: "Opmerkingen inruil", soort: "tekst", pad: "inruil.opm", verplicht: false, hint: "Bijvoorbeeld losse inkoop" });
     }
+    add("Opmerkingen", { key: "wpregels", label: "Regels voor de werkplaats", soort: "regels", verplicht: false, hint: "Afspraken met de klant waar de werkplaats op moet letten, zoals bijlakken of een krasje linksvoor. Komt straks automatisch mee uit de offerte." });
     add("Opmerkingen", { key: "opm_verkoop", label: "Opmerkingen voor het team", soort: "tekstvak", pad: "opm_verkoop", verplicht: false, hint: "Bijvoorbeeld: levering op verjaardag" });
   }
 
   if (nr === 2) {
+    if ((o.werkplaatsregels || []).length) add("Werkplaats", { key: "wpregels", label: "Regels voor de werkplaats", soort: "regels", alleenLezen: true, verplicht: false, hint: "Van de verkoop, straks rechtstreeks uit de offerte." });
     add("Werkplaats", { key: "accessoires", label: "Accessoires uit de orderbevestiging", soort: "lijst", verplicht: false });
     add("Werkplaats", { key: "w_gecontroleerd", label: "Orderbevestiging gecontroleerd en accessoires ingevoerd", soort: "vink" });
     add("Werkplaats", { key: "onderdelen", label: "Onderdelen besteld, met verwachte leverdatum", soort: "onderdelen" });
@@ -164,7 +168,7 @@ function puntenVoor(o, nr) {
     add("Ontvangst", { key: "binnen", label: "Auto binnen gemeld", soort: "actie", knop: "Auto is binnen" });
     if (o.type === "nieuw") {
       add("Kenteken", { key: "kent_aangevraagd", label: "Kenteken aangevraagd", soort: "actie", knop: "Kenteken aangevraagd" });
-      add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken" });
+      add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken", hint: heeftTrekhaak(o) ? "Trekhaak op de order: zodra het kenteken er staat, krijgt de serviceadviseur de taak om de witte kentekenplaat te bestellen" : "" });
     }
     if (o.type === "import") add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "import", hint: "Komt vanzelf binnen zodra de importlijst op kenteken bekend staat" });
     add("Ontvangst", { key: "wp_deadline", label: "Werkplaats klaar uiterlijk", soort: "info", tekst: "Volgt uit de afleverdatum.", verplicht: false });
@@ -176,10 +180,10 @@ function puntenVoor(o, nr) {
 
   if (nr === 4) {
     add("Planning", { key: "wp_ingepland", label: "Ingepland in de werkplaats", soort: "vink" });
-    add("Afleverklaar", { key: "wp_klaar", label: "Auto werkplaatsklaar", soort: "vink" });
     add("Afleverklaar", { key: "geladen", label: "Laden", soort: "keuze", pad: "geladen", opties: LADEN, hint: "Laadpaal vrij: laden. Vol: niet geladen, dan laadt de verkoop" });
     if (o.auto?.phev) add("Afleverklaar", { key: "getankt", label: "Getankt", soort: "vink", hint: "Plug-in hybride" });
-    add("Afleverklaar", { key: "wp_agenda", label: "WP-klaar in de agenda", soort: "info", tekst: "Gaat automatisch zodra je WP-klaar afvinkt.", verplicht: false });
+    /* onderaan, als afsluiting van de fase */
+    add("Afronden", { key: "wp_klaar", label: "Auto werkplaatsklaar", soort: "vink", hint: "Hiermee rond je de werkplaats af. De afspraak in de agenda gaat vanzelf naar WP-klaar" });
   }
 
   if (nr === "ott") {
@@ -188,6 +192,7 @@ function puntenVoor(o, nr) {
 
   if (nr === 5) {
     add("Voorbereiding", { key: "w_gelezen", label: "Opmerkingen werkplaats gelezen en open punten opgelost", soort: "vink" });
+    if (o.bnp) add("Voorbereiding", { key: "bnp_contract", label: "BNP-contract geüpload", soort: "upload", hint: "Zodat het contract bij de aflevering klaarligt. Uploaden kan ook al in fase 1" });
     if (o.geladen === "ja") add("Voorbereiding", { key: "volgeladen_info", label: "Auto volgeladen", soort: "info", tekst: "Geladen door de werkplaats.", verplicht: false });
     else add("Voorbereiding", { key: "volgeladen", label: "Auto volladen", soort: "vink", hint: o.geladen === "nee" ? "De werkplaats kon niet laden, laadpaal was vol" : "" });
     add("Voorbereiding", { key: "poets", label: "Ingepland bij de poetser", soort: "poets", hint: "Minimaal 24 uur vooraf, anders extra kosten" });
@@ -203,7 +208,7 @@ function puntenVoor(o, nr) {
 function puntKlaar(o, punt) {
   /* na 30 dagen zijn de klantgegevens gewist; dat heropent fase 1 niet */
   if (o.gewist && punt.pad?.startsWith("klant.")) return true;
-  if (punt.soort === "info" || punt.soort === "lijst") return true;
+  if (punt.soort === "info" || punt.soort === "lijst" || punt.soort === "regels") return true;
   if (punt.soort === "vink" || punt.soort === "actie" || punt.soort === "upload") return !!o.vink?.[punt.key];
   if (punt.soort === "janee") return typeof lees(o, punt.pad) === "boolean";
   if (punt.soort === "onderdelen") return (o.accessoires || []).every(a => a.besteld && a.verwacht);
@@ -253,7 +258,11 @@ function waaromOpSlot(o, nr) {
   if (nr === "ott") r.push("Fase 3 is nog niet rond: auto binnen, kenteken en afspraak met de klant.");
   if (nr === 5) {
     if (!o.vink?.binnen) r.push("De auto is nog niet binnen.");
-    else if (open(4)) r.push("De auto is nog in de werkplaats.");
+    else if (open(4)) {
+      /* benoem wat er in de werkplaats nog openstaat, anders snapt niemand waarom dit op slot zit */
+      const open4 = openPunten(o, 4).map(p => p.label.toLowerCase());
+      r.push(`De werkplaats is nog niet klaar. Daar staat nog open: ${open4.join(", ")}.`);
+    }
     if (o.ott && open("ott")) r.push("De OTT-code is er nog niet.");
   }
   return r;
@@ -377,7 +386,7 @@ function verkoopDelen(o) {
     { nr: 1, label: "Kenteken toevoegen", klaar: !!o.auto?.kenteken, open: !!v.binnen },
     { nr: 2, label: "Afleverdatum bevestigen, factuur aanvragen", klaar: !!v.factuur, open: !!o.auto?.kenteken },
     { nr: 3, label: "Auto volladen", klaar: volGeladen(o), open: !!v.wp_klaar && o.geladen === "nee" },
-    { nr: 4, label: "Inplannen bij de poetser", klaar: !!o.poets?.datum && !(o.afleverdatum && o.poets.datum > o.afleverdatum), open: volGeladen(o) },
+    { nr: 4, label: "Inplannen bij de poetser", klaar: !!o.poets?.datum && !(o.afleverdatum && o.poets.datum > o.afleverdatum), open: volGeladen(o) && faseStatus(o, 5) !== "grijs" },
     { nr: 5, label: "Gepoetst in de showroom", klaar: !!v.showroom, open: !!o.poets?.datum }
   ];
   /* de import regelt deel 1 zelf via de importlijst */
@@ -436,4 +445,33 @@ function klantNaam(o) {
   if (o.gewist) return "Klantgegevens gewist";
   const k = o.klant || {};
   return [k.aanhef, k.naam].filter(Boolean).join(" ") || "Nieuwe klant";
+}
+
+/* ---------- vragen van de werkplaats aan de verkoper (feedback Mark, punt 1) ----------
+   Een opmerking van de serviceadviseur is een vraag aan de verkoper. Hij staat open tot de
+   serviceadviseur hem op opgelost zet; wie "aan zet" is, wisselt met elke reactie. De
+   werkplaats kan pas verder zolang de vraag op de verkoper wacht. */
+function vraagAanZet(m) {
+  if (!m.open || m.auteurRol !== "serviceadviseur") return null;
+  const laatste = (m.reacties || [])[(m.reacties || []).length - 1];
+  return laatste && laatste.rol !== "serviceadviseur" ? "serviceadviseur" : "verkoper";
+}
+function wachtOpVerkoper(o) { return (o.opmerkingen || []).filter(m => vraagAanZet(m) === "verkoper"); }
+function wachtOpServiceadviseur(o) { return (o.opmerkingen || []).filter(m => vraagAanZet(m) === "serviceadviseur"); }
+
+/* ---------- witte kentekenplaat bij een trekhaak (punt 3) ----------
+   Kan pas besteld worden als het kenteken bekend is; vanaf dat moment is het een taak
+   voor de serviceadviseur, tot hij hem op uitgevoerd zet. */
+function heeftTrekhaak(o) { return (o.accessoires || []).some(a => /trekhaak/i.test(a.naam || "")); }
+function wittePlaatNodig(o) { return heeftTrekhaak(o) && !!o.auto?.kenteken && !o.vink?.witteplaat && !o.vink?.afgeleverd; }
+
+/* ---------- toevoegingen aan een bestaande order (punt 4) ----------
+   De verkoper geeft door dat er iets bij komt; de serviceadviseur beoordeelt of het vóór de
+   afleverdatum past. Past het niet, dan vult hij de gereeddatum in en is de vroegst
+   mogelijke aflevering 48 uur later. */
+function vroegsteNaGereed(gereed) { return plusDagen(gereed, 2); }
+function openToevoegingen(o) { return (o.toevoegingen || []).filter(t => t.status === "nieuw"); }
+function toevoegingProbleem(o) {
+  return (o.toevoegingen || []).find(t => t.status === "past-niet" && !o.vink?.afgeleverd &&
+    o.afleverdatum && o.afleverdatum < vroegsteNaGereed(t.gereed));
 }

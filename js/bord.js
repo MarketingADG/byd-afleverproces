@@ -68,6 +68,8 @@ function blok(o, rij, i) {
     const nuTekst = !volgende ? "Klaar voor aflevering" : volgende.open ? `Nu: ${eersteKlein(volgende.label)}` : volgende.nr === 3 ? "Wacht op de werkplaats" : "Wacht op het kenteken";
     midden = `<div class="b2">${esc(o.auto.model)}${o.auto.kenteken ? " · " + esc(o.auto.kenteken) : ""}${o.type !== "nieuw" ? " · " + TYPES[o.type] : ""}</div>
       ${kleur === "rood" ? `<div class="reden">${esc(waaromTeLaat(o, FASES.find(f => faseStatus(o, f.nr) === "rood").nr))}</div>` : ""}
+      ${wachtOpVerkoper(o).length ? `<div class="reden">Werkplaats wacht op reactie van ${esc(o.verkoper.split(" ")[0])}</div>` : ""}
+      ${toevoegingProbleem(o) ? `<div class="reden">Toevoeging: nieuwe afleverdatum nodig, vroegst ${datumKort(vroegsteNaGereed(toevoegingProbleem(o).gereed))}</div>` : ""}
       <div class="b3"><span class="datum">${o.afleverdatum ? `Aflevering ${datumKort(o.afleverdatum)}${uur(o.aflevertijd)}` : "Afleverdatum nog vastleggen"}</span>${bel}${iconen(o)}</div>`;
     onder = `${delenBalk(delen, "Verkoop en aflevering")}<div class="b4">${esc(nuTekst)}</div>`;
   }

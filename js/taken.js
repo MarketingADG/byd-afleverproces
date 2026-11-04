@@ -7,8 +7,11 @@ const ik = kopbalk("taken");
 const orders = laadOrders();
 const kies = document.getElementById("f_persoon");
 
+/* de afleverspecialist ziet de taken van de serviceadviseur niet (feedback Mark, punt 5) */
+const zonderSa = ik.rol === "afleverspecialist";
 kies.innerHTML = `<option value="">Iedereen</option>` +
-  PERSONEN.map(p => `<option value="${esc(p.naam)}">${esc(p.naam)} · ${ROLLEN[p.rol]}</option>`).join("");
+  PERSONEN.filter(p => !(zonderSa && p.rol === "serviceadviseur"))
+    .map(p => `<option value="${esc(p.naam)}">${esc(p.naam)} · ${ROLLEN[p.rol]}</option>`).join("");
 kies.value = ik.rol === "manager" ? "" : ik.naam;
 
 const VERKOOP = ["verkoper", "afleverspecialist"];
@@ -59,8 +62,29 @@ function alleTaken() {
     if (o.vink.factuur && !o.vink.afgeleverd)
       taak("factuur", "administratie", { kleur: "oranje", deadline: o.afleverdatum,
         kop: "Factuur maken", wat: `Aangevraagd door ${o.vink.factuur.door}, kenteken ${o.auto.kenteken || ""}, te betalen ${bedrag(o.te_betalen) || "onbekend"}` });
+
+    /* opmerking van de werkplaats: blijft staan tot de verkoper reageert of hem oplost */
+    for (const m of wachtOpVerkoper(o))
+      taak(`vraag-${m.id}`, "verkoper", { kleur: "oranje", deadline: naarIso(vandaag()),
+        kop: "Reageren op de werkplaats", wat: `"${m.tekst}" — de werkplaats kan pas verder na jouw reactie`, anker: m.fase });
+
+    /* toevoeging past niet vóór de huidige afleverdatum: verkoper kiest een nieuwe */
+    const tp = toevoegingProbleem(o);
+    if (tp) taak("toevoeging-datum", "verkoper", { kleur: "rood", deadline: naarIso(vandaag()),
+      kop: "Nieuwe afleverdatum kiezen", wat: `Door de toevoeging is de auto pas ${datumKort(tp.gereed)} klaar; vroegste aflevering ${datumKort(vroegsteNaGereed(tp.gereed))}`, anker: 3 });
+
+    /* uitgestelde aflevering: melding voor de administratie tot ze hem verwerkt heeft */
+    if (o.uitgesteld && !o.uitgesteld.verwerkt)
+      taak("uitstel", "administratie", { kleur: "oranje", deadline: naarIso(vandaag()),
+        kop: "Aflevering uitgesteld", wat: `Was ${datumKort(o.uitgesteld.van)}, wordt ${datumKort(o.afleverdatum)}${o.aflevertijd ? ", " + o.aflevertijd.replace(":", ".") : ""}${o.uitgesteld.reden ? `. Reden: ${o.uitgesteld.reden}` : ""}`,
+        doe: "uitstel-verwerkt", doeLabel: "Verwerkt" });
   }
   return lijst;
+}
+
+function zichtbareTaken() {
+  const alles = alleTaken();
+  return zonderSa ? alles.filter(t => t.rol !== "serviceadviseur") : alles;
 }
 
 function rij(t, wie) {
@@ -71,13 +95,14 @@ function rij(t, wie) {
     <div><a class="wie" href="${href}">${esc(klantNaam(t.o))}</a><div class="sub">${esc(t.o.auto.model || "")}${t.o.auto.kenteken ? " · " + esc(t.o.auto.kenteken) : ""}${wie ? "" : " · " + esc(t.naam)}${t.opgepakt ? " (overgenomen)" : ""}</div></div>
     <div class="wat"><div class="kop">${esc(t.kop)}</div><div class="sub">${esc(t.wat)}</div></div>
     <div class="wanneer">${t.deadline ? (t.o.afleverdatum && t.deadline === t.o.afleverdatum ? "Aflevering " : "") + relatief(t.deadline) : ""}</div>
-    <div class="actie">${kanOppakken ? `<button type="button" class="knop" data-oppakken="${t.o.id}|${t.sleutel}">Overnemen</button>` : ""}</div>
+    <div class="actie">${t.doe ? `<button type="button" class="knop" data-doe="${t.o.id}|${t.doe}">${esc(t.doeLabel)}</button>`
+      : kanOppakken ? `<button type="button" class="knop" data-oppakken="${t.o.id}|${t.sleutel}">Overnemen</button>` : ""}</div>
   </div>`;
 }
 
 function teken() {
   const wie = kies.value;
-  const taken = alleTaken().filter(t => !wie || t.naam === wie)
+  const taken = zichtbareTaken().filter(t => !wie || t.naam === wie)
     .sort((a, b) => (a.kleur === "rood" ? 0 : 1) - (b.kleur === "rood" ? 0 : 1) || (a.deadline || "9").localeCompare(b.deadline || "9"));
 
   const groepen = [
@@ -88,7 +113,7 @@ function teken() {
 
   const rood = groepen[0][1].length;
   const collega = VERKOOP.includes(ik.rol) && wie === ik.naam
-    ? alleTaken().filter(t => VERKOOP.includes(t.rol) && t.naam !== ik.naam).length : 0;
+    ? zichtbareTaken().filter(t => VERKOOP.includes(t.rol) && t.naam !== ik.naam).length : 0;
   document.getElementById("samenvatting").innerHTML = (taken.length
     ? `${taken.length} ${taken.length === 1 ? "taak" : "taken"} open${rood ? `, ${rood} te laat` : ""}.`
     : "") + (collega ? ` <button type="button" class="knop link" id="team">Bekijk ${collega} ${collega === 1 ? "taak" : "taken"} van collega's om over te nemen</button>` : "");
@@ -102,6 +127,18 @@ function teken() {
 
 document.addEventListener("click", e => {
   if (e.target.id === "team") { kies.value = ""; teken(); return; }
+  const doe = e.target.closest("[data-doe]");
+  if (doe) {
+    const [id, wat] = doe.dataset.doe.split("|");
+    const o = orders.find(x => x.id === id);
+    if (wat === "uitstel-verwerkt") {
+      o.uitgesteld.verwerkt = { door: ik.naam, op: nu() };
+      o.log.push({ op: nu(), door: ik.naam, wat: "Uitstel verwerkt door de administratie" });
+      bewaar(orders);
+      toast("Verwerkt. De nieuwe datum staat in de order.");
+    }
+    teken(); return;
+  }
   const b = e.target.closest("[data-oppakken]"); if (!b) return;
   const [id, sleutel] = b.dataset.oppakken.split("|");
   const o = orders.find(x => x.id === id);
