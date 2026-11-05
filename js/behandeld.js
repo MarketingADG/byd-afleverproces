@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Behandeld: alles wat de werkplaats heeft afgevinkt, nieuwste bovenaan. Terugzetten kan,
    en komt met naam en tijd in het logboek van de order. */
 
@@ -52,3 +56,5 @@ bak.addEventListener("click", e => {
 });
 
 teken();
+
+})();

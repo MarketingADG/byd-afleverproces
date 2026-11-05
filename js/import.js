@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Importlijst: elke auto die geïmporteerd wordt, verkocht of niet. Verkopers voegen een auto
    toe bij de inkoop. Elke auto loopt door zeven stappen (0 tot en met 6). Staat er een order
    met hetzelfde chassisnummer, dan werkt die automatisch mee: binnen gemeld, en bij stap 6
@@ -60,7 +64,7 @@ function bijwerken(imp, wat) {
   return o;
 }
 
-document.addEventListener("click", e => {
+opDocument("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   const d = b.dataset;
   if (d.weergave) { weergave = d.weergave; history.replaceState(null, "", location.pathname); teken(); return; }
@@ -112,3 +116,5 @@ form.addEventListener("submit", e => {
 
 document.getElementById("zoek").addEventListener("input", teken);
 teken();
+
+})();

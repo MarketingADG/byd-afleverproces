@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Dashboard voor de manager. Alle cijfers worden uit de orders berekend. NPS per maand
    volgt zodra de bron van de NPS bekend is (open vraag 3 in docs/plan.md). */
 
@@ -130,3 +134,5 @@ bak.addEventListener("click", e => {
   periode = b.dataset.periode; teken();
 });
 teken();
+
+})();

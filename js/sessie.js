@@ -208,10 +208,14 @@ function laadScript(src) {
   });
 }
 
+/* De foutmelding hoort in de inhoudkolom, niet als los kind onder body: een derde kind zou
+   anders het twee-koloms raster verstoren. Staat het menu er al (vroegeKopbalk), dan komt de
+   melding in main; is er nog geen main, dan valt hij terug op body. */
 function startFout(tekst) {
   document.body.classList.remove("laden");
-  document.body.insertAdjacentHTML("afterbegin",
-    `<div class="melding rood" style="margin:24px">${esc(tekst)} <a href="${esc(location.href)}">Opnieuw proberen</a></div>`);
+  const doel = document.querySelector("main.pagina") || document.body;
+  doel.insertAdjacentHTML("afterbegin",
+    `<div class="melding rood" style="margin:24px 0">${esc(tekst)} <a href="${esc(location.href)}">Opnieuw proberen</a></div>`);
 }
 
 async function opstarten() {

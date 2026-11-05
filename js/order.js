@@ -372,6 +372,7 @@ function faseHtml(f) {
       </div></div>`;
   if (f.nr === 3) voet = `<div class="fase-voet">
       <button type="button" class="knop" id="agenda" ${o.afleverdatum && o.aflevertijd ? "" : "disabled"}>Zet in agenda</button>
+      <button type="button" class="knop" id="mailca" ${o.afleverdatum && o.aflevertijd ? "" : "disabled"}>Stuur naar CA</button>
       <a class="knop" href="briefje.html?id=${o.id}" target="_blank">Print briefje voorruit</a></div>`;
 
   return `<section class="fase ${status === "grijs" ? "op-slot" : magRol ? "" : "alleen-lezen"}" id="fase-${f.nr}" aria-labelledby="fase-titel">
@@ -540,6 +541,78 @@ function agendaBestand() {
   toast("Afspraak gedownload. Open hem en sla hem op in de agenda van bydgroningen@.");
 }
 
+/* ---------- aflevergegevens als klaargezette mail naar de administratie (CA) ----------
+   mailto kan alleen platte tekst, geen tabel. Daarom een .eml-bestand (message/rfc822) met
+   X-Unsent: 1: Outlook opent dat als concept met de HTML-tabel erin, gericht aan ca@adggroep.nl.
+   De verkoper controleert en verstuurt zelf. Blob-download blijft binnen de CSP (geen fetch),
+   net als agendaBestand(). Dit is het webequivalent van de Excel-macro (zie docs/bron). */
+function mailNaarCa() {
+  const k = o.klant || {}, a = o.auto || {};
+  const adres = [k.postcode, k.huisnr].filter(Boolean).join(" ");
+  const aflevering = o.afleverdatum
+    ? `${datumKort(o.afleverdatum)}${o.aflevertijd ? ", " + blokTekst(o.aflevertijd) : ""}`
+    : "Nog niet gepland";
+  const jaNee = v => v === true ? "Ja" : v === false ? "Nee" : "Nog niet gekozen";
+  const leeg = "Nog niet ingevuld";
+
+  const rijen = [
+    ["kop", "Order"],
+    ["Ordernummer", o.ordernummer || "Nog geen nummer"],
+    ["Soort", TYPES[o.type] || leeg],
+    ["Verkoper", o.verkoper || leeg],
+    ["kop", "Klant"],
+    ["Naam", klantNaam(o)],
+    ["Postcode en huisnummer", adres || leeg],
+    ["E-mail", k.email || leeg],
+    ["Telefoon", k.tel || leeg],
+    ["kop", "Auto"],
+    ["Model", autoNaam(o) || leeg],
+    ["Uitvoering", a.uitvoering || leeg],
+    ["Kleur", a.kleur || leeg],
+    ["Kenteken", a.kenteken || leeg],
+    ["Chassisnummer (VIN)", a.chassis || leeg],
+    ["Meldcode", meldcode(o) || leeg],
+    ["kop", "Aflevering en financieel"],
+    ["Afleverdatum", aflevering],
+    ["Mastercare", jaNee(o.mastercare)],
+    ["OTT-tenaamstelling", jaNee(o.ott)],
+    ["Toe te betalen", o.te_betalen != null && o.te_betalen !== "" ? bedrag(o.te_betalen) : leeg]
+  ];
+
+  const body = rijen.map(([label, val]) =>
+    label === "kop"
+      ? `<tr><th colspan="2" style="background:#f0f0f0;border:1px solid #cccccc;padding:6px 10px;text-align:left;font-size:14px;">${esc(val)}</th></tr>`
+      : `<tr><td style="border:1px solid #cccccc;padding:6px 10px;font-weight:bold;width:40%;">${esc(label)}</td><td style="border:1px solid #cccccc;padding:6px 10px;">${esc(val)}</td></tr>`
+  ).join("");
+
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;">
+<p>Hierbij de aflevergegevens voor ${esc(klantNaam(o))}.</p>
+<table style="border-collapse:collapse;border:1px solid #cccccc;">${body}</table>
+<p>Met vriendelijke groet,<br>${esc(o.verkoper || "")}</p>
+</body></html>`;
+
+  /* niet-ASCII in het onderwerp (accenten in een naam) RFC 2047-geldig coderen voor Outlook */
+  const naarUtf8B64 = s => { let bin = ""; new TextEncoder().encode(s).forEach(b => bin += String.fromCharCode(b)); return btoa(bin); };
+  const onderwerp = `Afleverformulier ${o.ordernummer || meldcode(o) || o.id} - ${klantNaam(o)}`;
+  const onderwerpHeader = /[^\x00-\x7F]/.test(onderwerp) ? `=?UTF-8?B?${naarUtf8B64(onderwerp)}?=` : onderwerp;
+
+  const eml = [
+    "To: ca@adggroep.nl",
+    `Subject: ${onderwerpHeader}`,
+    "X-Unsent: 1",
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=utf-8",
+    "",
+    html
+  ].join("\r\n");
+
+  const el = document.createElement("a");
+  el.href = URL.createObjectURL(new Blob([eml], { type: "message/rfc822" }));
+  el.download = `Afleverformulier ${o.ordernummer || meldcode(o) || o.id}.eml`;
+  el.click();
+  toast("Mail klaargezet. Open het gedownloade bestand; Outlook opent een concept aan ca@adggroep.nl. Controleer en verstuur.");
+}
+
 /* ---------- invoer ---------- */
 
 const ACTIE_MELDING = {
@@ -667,6 +740,7 @@ hoofd.addEventListener("click", e => {
     toast(`Staat direct in de takenlijst van ${o.verkoper}; de afleverspecialist ziet hem ook. De werkplaats kan verder na zijn reactie.`); return;
   }
   if (t.id === "agenda") agendaBestand();
+  if (t.id === "mailca") mailNaarCa();
   if (t.id === "wijz_sturen") {
     const datum = document.getElementById("wijz_datum").value, blok = document.getElementById("wijz_blok").value;
     if (!datum) { toast("Kies de nieuwe afleverdatum."); return; }

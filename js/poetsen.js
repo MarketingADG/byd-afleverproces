@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Poetsplanning: alleen ter informatie. Toont de afleveringen van vandaag tot en met
    overmorgen, zodat je ziet welke auto's nog gepoetst moeten worden. Gemaakt voor de
    telefoon van de poetser. Gepoetst = "Gepoetst in de showroom" afgevinkt in de order. */
@@ -31,3 +35,5 @@ function teken() {
 }
 
 teken();
+
+})();

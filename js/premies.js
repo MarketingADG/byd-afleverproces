@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Premielijst: de manager zet per model welke premiesoorten er gelden (inruilpremie, ADG lease
    premie, Unilease, ...), elk met bedrag, premiecode en einddatum. De lijst met premiesoorten
    houdt de manager hier ook bij. In fase 1 van een order kiest de verkoper één premie uit de
@@ -98,3 +102,5 @@ if (ik.rol !== "manager") {
   });
   teken();
 }
+
+})();

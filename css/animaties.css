@@ -54,6 +54,11 @@
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
 
+/* Een nieuwe pagina die in het geheugen binnenkomt (router, main gewisseld) vervaagt kort
+   in, zodat de overgang net zo zacht voelt als in de offertemodule. */
+@keyframes pagina-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pagina-in{animation:pagina-in var(--duur) var(--ease-out) both}
+
 /* Dunne laadbalk bovenaan zolang de gegevens nog binnenkomen (body.laden). Het menu en de
    koppen staan er dan al; deze balk laat zien dat de inhoud nog laadt. */
 @keyframes laadbalk{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}

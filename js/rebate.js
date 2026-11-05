@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Premierapport voor BYD (BYD Rebate Monthly Report). De manager kiest op de premielijst een
    periode en downloadt alle nieuwe BYD's met een premie in het Excel-template van BYD.
 
@@ -233,3 +237,5 @@ function rebatePaneel(bak) {
 
 const rebateBak = document.getElementById("rebate");
 if (rebateBak && huidigePersoon().rol === "manager") rebatePaneel(rebateBak);
+
+})();

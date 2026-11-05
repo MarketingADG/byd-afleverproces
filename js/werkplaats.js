@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Werkplaats: weekagenda van maandag tot en met vrijdag. Elke auto staat op de dag waarop
    hij klaar moet zijn, met de tijd: 48 uur voor de aflevering. Niet op de afleverdatum.
    Daaronder twee takenlijsten: onderdelen bestellen en auto's inplannen. */
@@ -244,7 +248,7 @@ function beoordeelToevoeging(id, tid, gereed) {
   tekenWeek(); tekenTaken();
 }
 
-document.addEventListener("click", e => {
+opDocument("click", e => {
   const b = e.target.closest("button"); if (!b || venster.contains(b)) return;
   if (b.dataset.open) openVenster(b.dataset.open);
   if (b.dataset.ingepland) zetVink(orders.find(o => o.id === b.dataset.ingepland), "wp_ingepland", true);
@@ -274,3 +278,5 @@ document.addEventListener("click", e => {
 
 tekenWeek();
 tekenTaken();
+
+})();

@@ -206,3 +206,130 @@ const ICOON_TEKST = {
 function statusIcoon(soort, status, extra = "") {
   return `<span class="sico ${status}" title="${ICOON_TEKST[soort][status]}" ${extra}>${icoon(soort, 15)}<span class="vh">${ICOON_TEKST[soort][status]}</span></span>`;
 }
+
+/* ==========================================================================
+   Navigatie in het geheugen, zoals de offertemodule.
+
+   Een klik op een menulink herlaadt de pagina niet. In plaats daarvan halen we alleen de
+   nieuwe <main> op, wisselen die om, zetten de titel goed en draaien het paginascript
+   opnieuw. De gegevens (ORDERS, IK, PERSONEN, LIJSTEN) blijven in het geheugen staan, dus er
+   is geen nieuwe aflever_start per klik. Dat scheelt de wachttijd en het verspringen dat je
+   bij een volledige herlading zag.
+
+   Alleen de menupagina's gaan zo; orderdetail, de briefjes en inloggen staan niet in
+   ROUTEERBAAR en laden gewoon volledig. Voor dat laatste blijven de paginascripts die hier
+   opnieuw draaien netjes: elk is in een eigen functiebereik gewikkeld (IIFE), en luisteraars
+   op document of window gaan via opDocument/opWindow met een signaal dat bij elke navigatie
+   wordt ingetrokken, zodat ze niet opstapelen.
+   ========================================================================== */
+
+const ROUTEERBAAR = new Set(["index.html", "taken.html", "import.html", "poetsen.html",
+  "werkplaats.html", "behandeld.html", "dashboard.html", "premies.html"]);
+
+function paginaNaam(pad) { return pad.split("/").pop() || "index.html"; }
+
+/* Luisteraars van een paginascript op document of window registreren zich hiermee. Het
+   signaal wordt bij een navigatie ingetrokken (abort), zodat de oude luisteraar verdwijnt.
+   Luisteraars op elementen binnen <main> hoef je zo niet op te ruimen: die gaan vanzelf weg
+   als main wordt vervangen. */
+let _paginaAfbreek = null;
+function paginaSignal() {
+  if (!_paginaAfbreek) _paginaAfbreek = new AbortController();
+  return _paginaAfbreek.signal;
+}
+function _paginaVernieuwen() {
+  if (_paginaAfbreek) _paginaAfbreek.abort();
+  _paginaAfbreek = new AbortController();
+}
+function opDocument(type, fn, opties) { document.addEventListener(type, fn, { ...opties, signal: paginaSignal() }); }
+function opWindow(type, fn, opties) { window.addEventListener(type, fn, { ...opties, signal: paginaSignal() }); }
+
+/* De HTML van elke menupagina is statisch; die bewaren we in het geheugen na de eerste keer.
+   Zo is elke klik daarna direct, zonder netwerk. */
+const _htmlCache = new Map();
+async function _haalPagina(href) {
+  const naam = paginaNaam(new URL(href, location.href).pathname);
+  if (_htmlCache.has(naam)) return _htmlCache.get(naam);
+  const r = await fetch(href, { headers: { "X-Requested-With": "router" } });
+  if (!r.ok) throw new Error(`pagina ${r.status}`);
+  const tekst = await r.text();
+  _htmlCache.set(naam, tekst);
+  return tekst;
+}
+
+const _scrollPlek = new Map();
+
+async function _toonPagina(href, duwen) {
+  const naam = paginaNaam(new URL(href, location.href).pathname);
+  let doc;
+  try { doc = new DOMParser().parseFromString(await _haalPagina(href), "text/html"); }
+  catch (e) { location.href = href; return; }
+  const nieuwMain = doc.querySelector("main");
+  const starts = [...doc.querySelectorAll("script[data-start]")].map(s => s.dataset.start);
+  const huidigMain = document.querySelector("main");
+  if (!nieuwMain || !starts.length || !huidigMain) { location.href = href; return; }
+
+  _scrollPlek.set(paginaNaam(location.pathname), window.scrollY);
+  _paginaVernieuwen();
+
+  if (duwen) history.pushState({ router: true }, "", href);
+  document.title = doc.title;
+
+  /* Niet alleen <main> wisselen: een pagina kan naast main nog losse elementen onder body
+     hebben (zoals het dialoogvenster van de werkplaats). We vervangen alle inhoud, maar laten
+     het menu, de scripts en lopende toasts staan. */
+  const menu = document.querySelector("aside.zijmenu");
+  [...document.body.children].forEach(el => {
+    if (el === menu || el.tagName === "SCRIPT" || el.classList.contains("toasts")) return;
+    el.remove();
+  });
+  const anker = menu ? menu.nextSibling : document.body.firstChild;
+  for (const el of [...doc.body.children]) {
+    if (el.tagName === "SCRIPT") continue;
+    const kopie = document.importNode(el, true);
+    if (kopie.tagName === "MAIN") kopie.classList.add("pagina-in");
+    document.body.insertBefore(kopie, anker);
+  }
+
+  document.querySelectorAll("script[data-paginascript]").forEach(s => s.remove());
+  try { for (const src of starts) await _laadPaginaScript(src); }
+  catch (e) { /* kopbalk kan doorsturen naar een eigen startpagina; dan neemt de browser het over */ }
+
+  window.scrollTo(0, duwen ? 0 : (_scrollPlek.get(naam) || 0));
+}
+
+function _laadPaginaScript(src) {
+  return new Promise((ok, fout) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.dataset.paginascript = "1";
+    s.onload = ok;
+    s.onerror = () => fout(new Error(`${src} niet geladen`));
+    document.body.append(s);
+  });
+}
+
+addEventListener("popstate", () => {
+  if (ROUTEERBAAR.has(paginaNaam(location.pathname))) _toonPagina(location.href, false);
+  else location.reload();
+});
+
+document.addEventListener("click", e => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.target.closest("a[href]");
+  if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+  const url = new URL(a.href, location.href);
+  if (url.origin !== location.origin) return;
+  if (!ROUTEERBAAR.has(paginaNaam(url.pathname))) return;                 /* order, briefje: gewoon laden */
+  if (paginaNaam(url.pathname) === paginaNaam(location.pathname) && url.search === location.search) return;
+  e.preventDefault();
+  _toonPagina(url.href, true);
+}, true);
+
+/* De menupagina's alvast ophalen zodra het rustig is, zodat elke klik daarna direct is. */
+function _prefetchPaginas() {
+  for (const naam of ROUTEERBAAR) if (!_htmlCache.has(naam)) _haalPagina(naam).catch(() => { });
+}
+if (typeof OP_LOGIN !== "undefined" && !OP_LOGIN) {
+  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(_prefetchPaginas);
+}

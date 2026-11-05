@@ -1,3 +1,7 @@
+/* ROUTER-WRAP: dit paginascript draait opnieuw bij navigatie in het geheugen (zie js/ui.js).
+   Daarom staat alles in een eigen functiebereik: zo botsen de const-namen niet met die van
+   een vorige pagina en kan het script zonder herlading opnieuw. */
+(() => {
 /* Overzicht voor verkoop en afleverspecialist: drie kolommen naast elkaar in plaats van alle
    fases. In de uitleg van de vestiging heten ze "rijen"; elke rij is een lijst met de
    eerstvolgende bovenaan.
@@ -149,3 +153,5 @@ document.getElementById("rijen").addEventListener("click", e => {
 });
 ["zoek", "f_verkoper"].forEach(id => document.getElementById(id).addEventListener("input", teken));
 teken();
+
+})();
