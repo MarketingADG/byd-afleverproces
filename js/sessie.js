@@ -31,7 +31,7 @@ const SESSIE_SLEUTEL = "byd-afleverproces-sessie";
 function sessieToken() {
   try { return JSON.parse(localStorage.getItem(SESSIE_SLEUTEL))?.token || null; } catch (e) { return null; }
 }
-function sessieWeg() { try { localStorage.removeItem(SESSIE_SLEUTEL); } catch (e) { } }
+function sessieWeg() { try { localStorage.removeItem(SESSIE_SLEUTEL); sessionStorage.removeItem("byd-ik"); } catch (e) { } }
 
 function naarLogin(melding) {
   const hier = location.pathname.split("/").pop() + location.search + location.hash;
@@ -209,6 +209,7 @@ function laadScript(src) {
 }
 
 function startFout(tekst) {
+  document.body.classList.remove("laden");
   document.body.insertAdjacentHTML("afterbegin",
     `<div class="melding rood" style="margin:24px">${esc(tekst)} <a href="${esc(location.href)}">Opnieuw proberen</a></div>`);
 }
@@ -216,6 +217,7 @@ function startFout(tekst) {
 async function opstarten() {
   const token = sessieToken();
   if (!token) return;
+  if (typeof vroegeKopbalk === "function") vroegeKopbalk();
   let d;
   try {
     d = await rpc("aflever_start", { p_token: token });
@@ -232,6 +234,7 @@ async function opstarten() {
   }
 
   IK = d.ik;
+  try { sessionStorage.setItem("byd-ik", JSON.stringify(IK)); } catch (e) { }
   PERSONEN.push(...d.personen);
   if (!PERSONEN.some(p => p.naam === IK.naam)) PERSONEN.push({ naam: IK.naam, rol: IK.rol });
   for (const r of d.dossiers) {
@@ -270,6 +273,7 @@ async function opstarten() {
     if (e.message !== "andere startpagina") startFout(e.message);
     return;
   }
+  document.body.classList.remove("laden");
   if (binnen) toast(`${binnen} ${binnen === 1 ? "verkochte offerte" : "verkochte offertes"} uit de offertemodule binnengekomen als concept.`, "groen");
 }
 

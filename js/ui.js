@@ -94,20 +94,8 @@ const MENU_PER_ROL = {
 };
 function startpagina(rol) { return MENU[MENU_PER_ROL[rol][0]][0]; }
 
-function kopbalk(actief) {
-  const ik = huidigePersoon();
-  if (actief && !MENU_PER_ROL[ik.rol].includes(actief)) { location.replace(startpagina(ik.rol)); throw new Error("andere startpagina"); }
-  const orders = laadOrders();
-  const lopend = orders.filter(o => !o.concept && huidigeFase(o) !== "klaar");
-  const rood = lopend.filter(o => kaartStatus(o) === "rood").length;
-  const poetsOpen = orders.filter(o => teZienInPoetsplanning(o) && !gepoetst(o)).length;
-  const tellers = {
-    overzicht: rood ? `<span class="teller rood" title="${rood} te laat">${rood}</span>` : "",
-    poetsen: poetsOpen ? `<span class="teller">${poetsOpen}</span>` : ""
-  };
+function zijmenuEl(ik, actief, tellers) {
   const links = MENU_PER_ROL[ik.rol].map(k => [...MENU[k], k, tellers[k] || ""]);
-
-
   const zij = document.createElement("aside");
   zij.className = "zijmenu";
   zij.innerHTML = `
@@ -119,8 +107,48 @@ function kopbalk(actief) {
       <div class="ik"><span class="avatar">${initialen(ik.naam)}</span><div><div class="nm">${esc(ik.naam)}</div><div class="rl">${ROLLEN[ik.rol]}</div></div></div>
       <button type="button" class="knop" id="uitloggen">Uitloggen</button>
     </div>`;
-  document.body.prepend(zij);
   zij.querySelector("#uitloggen").addEventListener("click", uitloggen);
+  return zij;
+}
+
+/* welke menukeuze hoort bij de pagina die nu openstaat */
+function actiefVanPagina() {
+  const f = location.pathname.split("/").pop() || "index.html";
+  for (const k in MENU) if (MENU[k][0] === f) return k;
+  return null;
+}
+
+/* Zet het menu meteen neer uit de onthouden eigen rol (naam, rol, vestiging; geen
+   klantgegevens), nog voordat de database antwoordt. Zo staat de pagina er direct in
+   plaats van een seconde leeg; kopbalk() vervangt dit zodra de echte gegevens binnen zijn.
+   Is er nog geen onthouden rol (eerste keer na inloggen), dan gebeurt er niets. */
+function vroegeKopbalk() {
+  try {
+    if (document.querySelector(".zijmenu")) return;
+    const ik = JSON.parse(sessionStorage.getItem("byd-ik") || "null");
+    if (!ik || !MENU_PER_ROL[ik.rol]) return;
+    const actief = actiefVanPagina();
+    if (actief && !MENU_PER_ROL[ik.rol].includes(actief)) return;
+    document.body.prepend(zijmenuEl(ik, actief, {}));
+    document.body.classList.add("laden");
+  } catch (e) { }
+}
+
+function kopbalk(actief) {
+  const ik = huidigePersoon();
+  if (actief && !MENU_PER_ROL[ik.rol].includes(actief)) { location.replace(startpagina(ik.rol)); throw new Error("andere startpagina"); }
+  const orders = laadOrders();
+  const lopend = orders.filter(o => !o.concept && huidigeFase(o) !== "klaar");
+  const rood = lopend.filter(o => kaartStatus(o) === "rood").length;
+  const poetsOpen = orders.filter(o => teZienInPoetsplanning(o) && !gepoetst(o)).length;
+  const tellers = {
+    overzicht: rood ? `<span class="teller rood" title="${rood} te laat">${rood}</span>` : "",
+    poetsen: poetsOpen ? `<span class="teller">${poetsOpen}</span>` : ""
+  };
+  const zij = zijmenuEl(ik, actief, tellers);
+  const bestaand = document.querySelector(".zijmenu");
+  if (bestaand) bestaand.replaceWith(zij); else document.body.prepend(zij);
+  document.body.classList.remove("laden");
   return ik;
 }
 

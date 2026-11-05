@@ -53,3 +53,11 @@
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* Dunne laadbalk bovenaan zolang de gegevens nog binnenkomen (body.laden). Het menu en de
+   koppen staan er dan al; deze balk laat zien dat de inhoud nog laadt. */
+@keyframes laadbalk{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+body.laden::before{content:"";position:fixed;top:0;left:0;right:0;height:3px;z-index:1000;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:laadbalk 1s linear infinite}
+@media (prefers-reduced-motion: reduce){body.laden::before{animation:none;opacity:.6}}
