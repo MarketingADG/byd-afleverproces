@@ -542,10 +542,9 @@ function agendaBestand() {
 }
 
 /* ---------- aflevergegevens als klaargezette mail naar de administratie (CA) ----------
-   mailto kan alleen platte tekst, geen tabel. Daarom een .eml-bestand (message/rfc822) met
-   X-Unsent: 1: Outlook opent dat als concept met de HTML-tabel erin, gericht aan ca@adggroep.nl.
-   De verkoper controleert en verstuurt zelf. Blob-download blijft binnen de CSP (geen fetch),
-   net als agendaBestand(). Dit is het webequivalent van de Excel-macro (zie docs/bron). */
+   Opent meteen een nieuwe mail in Outlook (mailto), gericht aan ca@adggroep.nl, met de
+   aflevergegevens in de tekst. mailto kan alleen platte tekst, dus gegroepeerde regels in
+   plaats van een echte tabel. De verkoper controleert en verstuurt zelf. */
 function mailNaarCa() {
   const k = o.klant || {}, a = o.auto || {};
   const adres = [k.postcode, k.huisnr].filter(Boolean).join(" ");
@@ -579,38 +578,11 @@ function mailNaarCa() {
     ["Toe te betalen", o.te_betalen != null && o.te_betalen !== "" ? bedrag(o.te_betalen) : leeg]
   ];
 
-  const body = rijen.map(([label, val]) =>
-    label === "kop"
-      ? `<tr><th colspan="2" style="background:#f0f0f0;border:1px solid #cccccc;padding:6px 10px;text-align:left;font-size:14px;">${esc(val)}</th></tr>`
-      : `<tr><td style="border:1px solid #cccccc;padding:6px 10px;font-weight:bold;width:40%;">${esc(label)}</td><td style="border:1px solid #cccccc;padding:6px 10px;">${esc(val)}</td></tr>`
-  ).join("");
-
-  const html = `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;">
-<p>Hierbij de aflevergegevens voor ${esc(klantNaam(o))}.</p>
-<table style="border-collapse:collapse;border:1px solid #cccccc;">${body}</table>
-<p>Met vriendelijke groet,<br>${esc(o.verkoper || "")}</p>
-</body></html>`;
-
-  /* niet-ASCII in het onderwerp (accenten in een naam) RFC 2047-geldig coderen voor Outlook */
-  const naarUtf8B64 = s => { let bin = ""; new TextEncoder().encode(s).forEach(b => bin += String.fromCharCode(b)); return btoa(bin); };
+  const tekst = rijen.map(([label, val]) => label === "kop" ? `\r\n${val}` : `  ${label}: ${val}`).join("\r\n");
+  const body = `Hierbij de aflevergegevens voor ${klantNaam(o)}.\r\n${tekst}\r\n\r\nMet vriendelijke groet,\r\n${o.verkoper || ""}`;
   const onderwerp = `Afleverformulier ${o.ordernummer || meldcode(o) || o.id} - ${klantNaam(o)}`;
-  const onderwerpHeader = /[^\x00-\x7F]/.test(onderwerp) ? `=?UTF-8?B?${naarUtf8B64(onderwerp)}?=` : onderwerp;
 
-  const eml = [
-    "To: ca@adggroep.nl",
-    `Subject: ${onderwerpHeader}`,
-    "X-Unsent: 1",
-    "MIME-Version: 1.0",
-    "Content-Type: text/html; charset=utf-8",
-    "",
-    html
-  ].join("\r\n");
-
-  const el = document.createElement("a");
-  el.href = URL.createObjectURL(new Blob([eml], { type: "message/rfc822" }));
-  el.download = `Afleverformulier ${o.ordernummer || meldcode(o) || o.id}.eml`;
-  el.click();
-  toast("Mail klaargezet. Open het gedownloade bestand; Outlook opent een concept aan ca@adggroep.nl. Controleer en verstuur.");
+  location.href = `mailto:ca@adggroep.nl?subject=${encodeURIComponent(onderwerp)}&body=${encodeURIComponent(body)}`;
 }
 
 /* ---------- invoer ---------- */
