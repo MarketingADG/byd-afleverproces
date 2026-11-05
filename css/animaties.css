@@ -55,9 +55,12 @@
 }
 
 /* Een nieuwe pagina die in het geheugen binnenkomt (router, main gewisseld) vervaagt kort
-   in, zodat de overgang net zo zacht voelt als in de offertemodule. */
-@keyframes pagina-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.pagina-in{animation:pagina-in var(--duur) var(--ease-out) both}
+   in. Alleen opacity: geen verticale verschuiving, want de main komt als leeg skelet binnen
+   en wordt daarna door het paginascript gevuld. Een translate zou de inhoud laten verspringen
+   (het "schuiven en flikkeren"). Een rustige opacity-fade dekt dat vullen juist af. */
+@keyframes pagina-in{from{opacity:0}to{opacity:1}}
+.pagina-in{animation:pagina-in var(--duur-snel) var(--ease-out) both}
+@media (prefers-reduced-motion: reduce){.pagina-in{animation:none}}
 
 /* Dunne laadbalk bovenaan zolang de gegevens nog binnenkomen (body.laden). Het menu en de
    koppen staan er dan al; deze balk laat zien dat de inhoud nog laadt. */

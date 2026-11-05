@@ -22,6 +22,10 @@
 }
 
 a{color:var(--ink)}
+/* Reserveer altijd ruimte voor de verticale scrollbalk. Zonder dit verschijnt de balk pas als
+   een pagina langer wordt dan het scherm, en die balk eet breedte op: de inhoud verspringt dan
+   bij elke wissel naar een pagina met een andere hoogte (het "schuiven van links naar rechts"). */
+html{scrollbar-gutter:stable}
 /* Twee vaste kolommen: menu links, inhoud rechts. De named areas pinnen het menu en de
    inhoud op hun plek, zodat een extra element onder body (een foutmelding, een toast) het
    raster nooit uit elkaar trekt. */
