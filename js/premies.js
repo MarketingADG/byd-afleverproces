@@ -17,7 +17,7 @@ function teken() {
   bak.innerHTML = `
     <section class="paneel">
       <h2>Premies per model</h2>
-      <p class="toelichting">Voorbeeldbedragen en -codes in het prototype, niet de echte premies. Een model kan meerdere premiesoorten hebben; de verkoper kiest er bij de order één uit. Wijzig een bedrag, code of datum en het staat meteen goed in nieuwe orders.</p>
+      <p class="toelichting">Een model kan meerdere premiesoorten hebben; de verkoper kiest er bij de order één uit. Wijzig een bedrag, code of datum en het staat meteen goed in nieuwe orders.</p>
       ${rijen.length ? `<table class="tabel premietabel"><thead><tr><th>Model</th><th>Premiesoort</th><th>Premie</th><th>Premiecode</th><th>Geldig tot en met</th><th>Laatst gewijzigd</th><th><span class="vh">Verwijderen</span></th></tr></thead><tbody>
         ${rijen.map((p, i) => {
           const eerste = i === 0 || rijen[i - 1].model !== p.model;
@@ -28,7 +28,7 @@ function teken() {
           <td><label class="vh" for="b_${p.id}">Premie ${naam}</label><input id="b_${p.id}" class="invoer" type="number" min="0" step="50" data-id="${p.id}" data-veld="bedrag" value="${p.bedrag}"></td>
           <td><label class="vh" for="c_${p.id}">Premiecode ${naam}</label><input id="c_${p.id}" class="invoer" data-id="${p.id}" data-veld="code" value="${esc(p.code || "")}"></td>
           <td><label class="vh" for="t_${p.id}">Geldig tot ${naam}</label><input id="t_${p.id}" class="invoer" type="date" data-id="${p.id}" data-veld="tot" value="${p.tot || ""}"></td>
-          <td>${p.gewijzigd ? `${esc(p.gewijzigd.door)}, ${tijdstip(p.gewijzigd.op)}` : "Voorbeelddata"}</td>
+          <td>${p.gewijzigd ? `${esc(p.gewijzigd.door)}, ${tijdstip(p.gewijzigd.op)}` : ""}</td>
           <td><button type="button" class="knop link" data-weg="${p.id}">Verwijderen</button></td></tr>`;
         }).join("")}
       </tbody></table>` : `<p class="zij-leeg">Nog geen premies ingevoerd.</p>`}

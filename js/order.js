@@ -12,8 +12,9 @@ const hoofd = document.getElementById("order");
 
 /* ---------- nieuwe order ---------- */
 if (params.get("nieuw")) {
-  const nummer = String(Math.max(...orders.map(o => Number(o.id))) + 1);
-  const verkoper = ik.rol === "verkoper" ? ik.naam : PERSONEN.find(p => p.rol === "verkoper").naam;
+  /* intern nummer; het echte ordernummer vult de verkoper in fase 1 in */
+  const nummer = `N${Date.now()}`;
+  const verkoper = ik.rol === "verkoper" ? ik.naam : (PERSONEN.find(p => p.rol === "verkoper")?.naam || ik.naam);
   orders.push({
     id: nummer, ordernummer: "", type: "nieuw", voorraad: "winkel", verkoper, aangemaakt: nu(), concept: true,
     klant: {}, auto: {}, accessoires: [], vink: {}, contact: [], opmerkingen: [],
@@ -543,7 +544,7 @@ const ACTIE_MELDING = {
   team_info: () => `Melding met chassisnummer ${o.auto.chassis || "(nog leeg)"} naar het team in Groningen en Meppel.`,
   binnen: () => `Auto staat als binnen gemeld. De werkplaats kan ingepland worden.${o.type === "import" ? " De importlijst is bijgewerkt." : ""}`,
   kent_aangevraagd: () => "Kenteken-timer gestart. Verwacht binnen 1 tot 4 dagen.",
-  factuur: () => `Factuuraanvraag naar de administratie (Marieke Hoek), te betalen ${bedrag(o.te_betalen)}. De afleverdatum ligt nu vast.`,
+  factuur: () => `Factuuraanvraag naar de administratie, te betalen ${bedrag(o.te_betalen)}. De afleverdatum ligt nu vast.`,
   afgeleverd: () => "Aflevering afgerond. NPS volgt na 28 dagen, klantgegevens gaan er na 30 dagen uit."
 };
 
@@ -606,7 +607,7 @@ hoofd.addEventListener("click", e => {
   if (d.vink) {
     if (actieGeblokt(d.vink)) { toast(actieGeblokt(d.vink)); return; }
     wijzig(() => { o.vink[d.vink] = { door: ik.naam, op: nu() }; }, `${d.label} afgevinkt`);
-    if (d.vink === "wp_klaar") toast("WP-klaar. De afspraak in de Outlook-agenda van bydgroningen@ gaat straks vanzelf naar WP-klaar.");
+    if (d.vink === "wp_klaar") toast("WP-klaar. Zet dit ook bij de afspraak in de agenda van bydgroningen@.");
     return;
   }
   if (d.actie) {
@@ -654,7 +655,7 @@ hoofd.addEventListener("click", e => {
       o.uitgesteld = { van: o.afleverdatum, vanTijd: o.aflevertijd, naar: datum, reden, door: ik.naam, op: nu() };
       o.afleverdatum = datum; o.aflevertijd = blok;
     }, `Aflevering uitgesteld: ${van} wordt ${datumKort(datum)}, ${blokTekst(blok)}${reden ? `. Reden: ${reden}` : ""}. Melding naar de administratie`);
-    toast(`Uitgesteld naar ${datumKort(datum)}. De administratie (Marieke Hoek) ziet de melding en de nieuwe datum direct; de agenda-afspraak schuift mee.`);
+    toast(`Uitgesteld naar ${datumKort(datum)}. De administratie ziet de melding en de nieuwe datum direct in haar taken. Zet de nieuwe datum ook in de agenda.`);
     return;
   }
   if (t.id === "afwijking_melden") {
@@ -669,7 +670,7 @@ hoofd.addEventListener("click", e => {
     if (datum === o.afleverdatum && blok === o.aflevertijd) { toast("Datum en tijdsblok zijn niet veranderd."); return; }
     const van = `${datumKort(o.afleverdatum)}, ${blokTekst(o.aflevertijd)}`, naar = `${datumKort(datum)}, ${blokTekst(blok)}`;
     wijzig(() => { o.afleverdatum = datum; o.aflevertijd = blok; }, `Wijziging afleverdatum naar de administratie: ${van} wordt ${naar}`);
-    toast(`Wijziging naar de administratie (Marieke Hoek): ${naar}. De werkplaats schuift mee.`);
+    toast(`Wijziging naar de administratie: ${naar}. De werkplaats schuift mee.`);
   }
   if (t.id === "opslaan") {
     const open = openPunten(o, 1);
@@ -683,7 +684,7 @@ hoofd.addEventListener("click", e => {
     if (!confirm(`Echt verwijderen? ${o.concept ? "Het concept" : "De order"} en het logboek verdwijnen. Dit kun je niet terugdraaien.`)) return;
     orders.splice(orders.indexOf(o), 1);
     bewaar(orders);
-    location.href = startpagina(ik.rol);
+    wachtOpOpslaan().then(() => { location.href = startpagina(ik.rol); });
   }
   if (t.id === "log_meer") { heelLogboek = true; teken(); }
 });

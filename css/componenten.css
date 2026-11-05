@@ -47,6 +47,10 @@
 .auth-aside .merk path{fill:#fff}
 .auth-aside .streep{position:absolute;left:56px;top:56px;width:44px;height:4px;border-radius:2px;background:var(--accent)}
 .auth-aside .copy{position:absolute;left:0;right:0;bottom:0;padding:56px}
+/* de animatie (iframe) vult het paneel; beeldmerk, streep en tekst zijn dan verborgen */
+.auth-aside:has(#auth_anim){background:#fafafa}
+.auth-aside #auth_anim{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fafafa}
+.auth-aside:has(#auth_anim) .merk,.auth-aside:has(#auth_anim) .streep,.auth-aside:has(#auth_anim) .copy{display:none}
 .auth-aside .eyebrow{
   display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#fff;
   background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);

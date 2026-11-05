@@ -24,6 +24,14 @@ const VOORRAAD = {
   bestelling: "Niet op voorraad, bestellen"
 };
 
+/* Herkomst bij een gebruikte auto (feedback vestiging 2026-11-04). Eigen voorraad op de
+   winkel dekt negen van de tien gevallen en is daarom de standaard. */
+const VOORRAAD_GEBRUIKT = {
+  winkel: "Eigen voorraad, op de winkel",
+  "andere-locatie": "Eigen voorraad, andere locatie",
+  gekocht: "Gekocht, onderweg"
+};
+
 /* Verkoopkanaal, met de schrijfwijze die BYD in het Rebate-rapport eist (tabblad Explanation). */
 const KANALEN = {
   "particulier-koop": "Particulier, koop",
@@ -106,23 +114,24 @@ function puntenVoor(o, nr) {
      gaat een wijziging via de administratie. */
   const afspraak = groep => {
     add(groep, { key: "afleverdatum", label: "Afleverdatum", soort: "datum", pad: "afleverdatum",
-      hint: o.type === "import" && !o.auto?.kenteken ? "Import: verwachte datum, definitief zodra het kenteken er is" : "Plan je bij binnenkomst. Zet straks automatisch een afspraak in de agenda van bydgroningen@" });
+      hint: o.type === "import" && !o.auto?.kenteken ? "Import: verwachte datum, definitief zodra het kenteken er is" : "Plan je bij binnenkomst. Zet de afspraak daarna in de agenda van bydgroningen@" });
     add(groep, { key: "aflevertijd", label: "Tijdsblok", soort: "blok", pad: "aflevertijd" });
   };
 
   if (nr === 1) {
-    add("Order", { key: "contract", label: "Ondertekend contract", soort: "upload" });
-    add("Order", { key: "orderbev", label: "Orderbevestiging CarIt", soort: "upload", hint: "Later automatisch via de koppeling" });
-    add("Order", { key: "ordernummer", label: "Ordernummer", soort: "tekst", pad: "ordernummer" });
+    add("Order", { key: "contract", label: "Ondertekend contract staat in CarIt", soort: "vink" });
+    add("Order", { key: "orderbev", label: "Orderbevestiging staat in CarIt", soort: "vink" });
+    add("Order", { key: "ordernummer", label: "Ordernummer CarIt", soort: "tekst", pad: "ordernummer", hint: "Neem over uit CarIt zodra de order daar staat. Komt bewust niet uit de offertemodule" });
     add("Order", { key: "type", label: "Soort", soort: "keuze", pad: "type", opties: TYPES });
     if (nieuw) add("Order", { key: "voorraad", label: "Waar komt de auto vandaan", soort: "keuze", pad: "voorraad", opties: VOORRAAD });
+    if (o.type === "gebruikt") add("Order", { key: "voorraad", label: "Waar komt de auto vandaan", soort: "keuze", pad: "voorraad", opties: VOORRAAD_GEBRUIKT });
     add("Order", { key: "levertijd", label: "Afgesproken levertijd", soort: "datum", pad: "levertijd", hint: "Start de levertijd-timer" });
-    add("Order", { key: "te_betalen", label: "Nog te betalen door de klant", soort: "getal", pad: "te_betalen", eenheid: "€", hint: "Heeft de administratie nodig voor de factuur" });
+    add("Order", { key: "te_betalen", label: "Totaal toe te betalen bedrag", soort: "getal", pad: "te_betalen", eenheid: "€", hint: "Heeft de administratie nodig voor de factuur" });
     add("Order", { key: "mastercare", label: "Mastercare", soort: "janee", pad: "mastercare" });
     add("Order", { key: "ott", label: "OTT-tenaamstelling", soort: "janee", pad: "ott" });
     if (o.ott) add("Order", { key: "ott_via", label: "Via wie wordt de OTT opgevraagd", soort: "tekst", pad: "ott_via" });
     add("Order", { key: "bnp", label: "Financiering via BNP Paribas", soort: "janee", pad: "bnp" });
-    if (o.bnp) add("Order", { key: "bnp_contract", label: "BNP-contract", soort: "upload", verplicht: false, hint: "Upload zodra BNP het contract stuurt; moet er zijn vóór de aflevering" });
+    if (o.bnp) add("Order", { key: "bnp_contract", label: "BNP-contract ontvangen", soort: "vink", verplicht: false, hint: "Afvinken zodra BNP het contract stuurt; moet er zijn vóór de aflevering" });
 
     add("Klant", { key: "k_aanhef", label: "Aanhef", soort: "keuze", pad: "klant.aanhef", opties: { "Dhr.": "Dhr.", "Mevr.": "Mevr.", "Fam.": "Fam." } });
     add("Klant", { key: "k_naam", label: "Achternaam", soort: "tekst", pad: "klant.naam" });
@@ -149,19 +158,20 @@ function puntenVoor(o, nr) {
       add("Auto", { key: "rdc", label: "Transport ingepland via RDC", soort: "vink", verplicht: false, hint: "Indien nodig" });
       add("Auto", { key: "team_info", label: "Team geïnformeerd, ook Meppel", soort: "actie", knop: "Stuur melding met chassisnummer" });
     }
-    if (o.voorraad === "winkel" && nieuw) {
+    if (o.voorraad === "winkel" && (nieuw || o.type === "gebruikt")) {
       afspraak("Auto");
       add("Auto", { key: "binnen", label: "Auto binnen gemeld", soort: "actie", knop: "Auto is binnen", hint: "Staat al op de vestiging, dus meteen binnen melden" });
     }
-    add("Auto", { key: "acc_info", label: "Accessoires", soort: "info", tekst: "Vult de serviceadviseur in bij fase 2.", verplicht: false });
+    add("Auto", { key: "acc_info", label: "Accessoires", soort: "info", tekst: "Komen rechtstreeks mee uit de offerte. De serviceadviseur controleert ze in fase 2 tegen de orderbevestiging uit CarIt.", verplicht: false });
 
     if (nieuw) {
       add("Premie en deal", { key: "premie", label: "Premie", soort: "premiekeuze", pad: "premie.id", verplicht: false });
       add("Premie en deal", { key: "kanaal", label: "Verkoopkanaal", soort: "keuze", pad: "kanaal", opties: KANALEN, verplicht: false, hint: "Nodig voor het premierapport aan BYD" });
       add("Premie en deal", { key: "verkoopprijs", label: "Verkoopprijs inclusief btw", soort: "getal", pad: "verkoopprijs", eenheid: "€", verplicht: false });
+      /* premie en deal horen alleen bij een nieuwe auto (feedback vestiging 2026-11-04) */
+      add("Premie en deal", { key: "deal", label: "Speciale deal", soort: "janee", pad: "heeftDeal", verplicht: false, hint: "Eigen afspraak met de klant, buiten de premielijst" });
     }
-    add("Premie en deal", { key: "deal", label: "Speciale deal", soort: "janee", pad: "heeftDeal", verplicht: false, hint: "Eigen afspraak met de klant, buiten de premielijst" });
-    if (o.heeftDeal) {
+    if (nieuw && o.heeftDeal) {
       add("Premie en deal", { key: "deal_oms", label: "Omschrijving deal", soort: "tekst", pad: "deal.omschrijving" });
       add("Premie en deal", { key: "deal_bedrag", label: "Bedrag deal", soort: "getal", pad: "deal.bedrag", eenheid: "€" });
       add("Premie en deal", { key: "deal_code", label: "Dealcode", soort: "tekst", pad: "deal.code" });
@@ -173,16 +183,18 @@ function puntenVoor(o, nr) {
       add("Inruil", { key: "i_boekwaarde", label: "Boekwaarde", soort: "getal", pad: "inruil.boekwaarde", eenheid: "€" });
       add("Inruil", { key: "i_opm", label: "Opmerkingen inruil", soort: "tekst", pad: "inruil.opm", verplicht: false, hint: "Bijvoorbeeld losse inkoop" });
     }
-    add("Opmerkingen", { key: "wpregels", label: "Regels voor de werkplaats", soort: "regels", verplicht: false, hint: "Afspraken met de klant waar de werkplaats op moet letten, zoals bijlakken of een krasje linksvoor. Komt straks automatisch mee uit de offerte." });
+    add("Opmerkingen", { key: "wpregels", label: "Regels voor de werkplaats", soort: "regels", verplicht: false, hint: "Afspraken met de klant waar de werkplaats op moet letten, zoals bijlakken of een krasje linksvoor. Komt mee uit de offerte als de verkoper ze daar invult." });
     add("Opmerkingen", { key: "opm_verkoop", label: "Opmerkingen voor het team", soort: "tekstvak", pad: "opm_verkoop", verplicht: false, hint: "Bijvoorbeeld: levering op verjaardag" });
   }
 
   if (nr === 2) {
-    if ((o.werkplaatsregels || []).length) add("Werkplaats", { key: "wpregels", label: "Regels voor de werkplaats", soort: "regels", alleenLezen: true, verplicht: false, hint: "Van de verkoop, straks rechtstreeks uit de offerte." });
-    add("Werkplaats", { key: "accessoires", label: "Accessoires uit de orderbevestiging", soort: "lijst", verplicht: false });
-    add("Werkplaats", { key: "w_gecontroleerd", label: "Orderbevestiging gecontroleerd en accessoires ingevoerd", soort: "vink" });
-    add("Werkplaats", { key: "onderdelen", label: "Onderdelen besteld, met verwachte leverdatum", soort: "onderdelen" });
+    if ((o.werkplaatsregels || []).length) add("Werkplaats", { key: "wpregels", label: "Regels voor de werkplaats", soort: "regels", alleenLezen: true, verplicht: false, hint: "Van de verkoop, uit de offerte of fase 1." });
+    add("Werkplaats", { key: "accessoires", label: "Accessoires", soort: "lijst", verplicht: false, hint: "Uit de offerte. Controleer ze tegen de orderbevestiging in CarIt en vul aan wat mist." });
+    add("Werkplaats", { key: "w_gecontroleerd", label: "Orderbevestiging gecontroleerd en accessoires ingevoerd", soort: "vink",
+      hint: o.ordernummer ? `Ordernummer CarIt: ${o.ordernummer}. Zoek daarop in CarIt om de orderbevestiging en de accessoires na te lopen` : "De verkoop heeft het CarIt-ordernummer nog niet ingevuld; zoek in CarIt op klantnaam of vraag ernaar" });
+    add("Werkplaats", { key: "onderdelen", label: "Onderdelen besteld, met verwachte leverdatum", soort: "onderdelen", hint: "Na het bestellen alleen de verwachte leverdatum invullen; binnen melden hoeft niet meer" });
     add("Werkplaats", { key: "werkorder", label: "Werkordernummer", soort: "tekst", pad: "werkorder" });
+    add("Afronden", { key: "f2_klaar", label: "Onderdelen geregeld", soort: "vink", donker: true, knopTekst: "Fase 2 afgerond", hint: "Hiermee rond je fase 2 af; de verkoop ziet dat de onderdelen geregeld zijn" });
   }
 
   if (nr === 3) {
@@ -192,6 +204,8 @@ function puntenVoor(o, nr) {
       add("Kenteken", { key: "kent_aangevraagd", label: "Kenteken aangevraagd", soort: "actie", knop: "Kenteken aangevraagd" });
       add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken", hint: heeftTrekhaak(o) ? "Trekhaak op de order: zodra het kenteken er staat, krijgt de serviceadviseur de taak om de witte kentekenplaat te bestellen" : "" });
     }
+    /* een occasion heeft al een kenteken: niets aanvragen, alleen overnemen (feedback vestiging) */
+    if (o.type === "gebruikt") add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken", hint: heeftTrekhaak(o) ? "Trekhaak op de order: zodra het kenteken er staat, krijgt de serviceadviseur de taak om de witte kentekenplaat te bestellen" : "Al bekend bij een occasion, geen aanvraag nodig" });
     if (o.type === "import") add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "import", hint: "Komt vanzelf binnen zodra de importlijst op kenteken bekend staat" });
     add("Ontvangst", { key: "wp_deadline", label: "Werkplaats klaar uiterlijk", soort: "info", tekst: "Volgt uit de afleverdatum.", verplicht: false });
     add("Afspraak met klant", { key: "k_geboorte", label: "Geboortedatum klant", soort: "datum", pad: "klant.geboortedatum", verplicht: false, hint: "Voor de verzekeringsofferte" });
@@ -214,13 +228,16 @@ function puntenVoor(o, nr) {
 
   if (nr === 5) {
     add("Voorbereiding", { key: "w_gelezen", label: "Opmerkingen werkplaats gelezen en open punten opgelost", soort: "vink" });
-    if (o.bnp) add("Voorbereiding", { key: "bnp_contract", label: "BNP-contract geüpload", soort: "upload", hint: "Zodat het contract bij de aflevering klaarligt. Uploaden kan ook al in fase 1" });
+    if (o.bnp) add("Voorbereiding", { key: "bnp_contract", label: "BNP-contract ontvangen", soort: "vink", hint: "Zodat het contract bij de aflevering klaarligt. Afvinken kan ook al in fase 1" });
     if (o.geladen === "ja") add("Voorbereiding", { key: "volgeladen_info", label: "Auto volgeladen", soort: "info", tekst: "Geladen door de werkplaats.", verplicht: false });
     else add("Voorbereiding", { key: "volgeladen", label: "Auto volladen", soort: "vink", hint: o.geladen === "nee" ? "De werkplaats kon niet laden, laadpaal was vol" : "" });
-    add("Voorbereiding", { key: "poets", label: "Ingepland bij de poetser", soort: "poets", hint: "Minimaal 24 uur vooraf, anders extra kosten" });
+    /* het poetsen loopt via de aparte poetsapp; hier alleen vastleggen dat hij erin staat */
+    add("Voorbereiding", { key: "poetsapp", label: "In de poetsapp gezet", soort: "vink", hint: "Plan de poetsbeurt in de poetsapp, minimaal 24 uur vooraf, anders extra kosten" });
     add("Voorbereiding", { key: "showroom", label: "Gepoetst in de showroom. Check: schoon, kabels, accessoires, mastercare, calamiteitenpakket, kenteken op de auto", soort: "vink" });
     add("Voorbereiding", { key: "km", label: "Kilometerstand", soort: "getal", pad: "auto.km", eenheid: "km" });
-    add("Voorbereiding", { key: "betaling", label: "Betaling gecontroleerd", soort: "vink", hint: o.te_betalen != null && o.te_betalen !== "" ? `Te betalen: € ${Number(o.te_betalen).toLocaleString("nl-NL")}` : "Ontvangen bankbetalingen" });
+    /* alleen als er na de verkoop iets is toegevoegd: dan kan het totaal afwijken van de order */
+    if ((o.toevoegingen || []).length) add("Voorbereiding", { key: "bedragen_klopt", label: "Bedragen gecontroleerd met de order", soort: "vink", hint: "Er is na de verkoop een accessoire toegevoegd: controleer of het toe te betalen bedrag klopt met de bedragen op de order" });
+    add("Voorbereiding", { key: "betaling", label: "Betaling gecontroleerd", soort: "vink", hint: o.te_betalen != null && o.te_betalen !== "" ? `Toe te betalen: € ${Number(o.te_betalen).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Ontvangen bankbetalingen" });
     add("Aflevering", { key: "afgeleverd", label: "Aflevering afgerond", soort: "actie", knop: "Aflevering afgerond" });
   }
   return p;
@@ -296,7 +313,7 @@ function faseTeLaat(o, nr) {
   if (nr === 2) {
     /* onderdeel komt pas na de WP-deadline binnen, of zonder afleverdatum na levertijd min 2 dagen */
     const grens = wpDeadline(o) || (o.levertijd && plusDagen(o.levertijd, -2));
-    return !!grens && (o.accessoires || []).some(a => a.verwacht && a.verwacht > grens);
+    return !!grens && (o.accessoires || []).some(a => a.verwacht && a.verwacht > grens && !a.nalevering);
   }
   if (nr === 3) {
     const aangevraagd = o.vink?.kent_aangevraagd?.op;
@@ -381,14 +398,20 @@ function wpDeadline(o) {
 function wpMoment(o) { return wpDeadline(o) && `${wpDeadline(o)}T${o.aflevertijd || "00:00"}`; }
 function wpKlaarTekst(o) { return wpDeadline(o) ? `${datumKortP(wpDeadline(o))}${o.aflevertijd ? ", " + o.aflevertijd.replace(":", ".") : ""}` : ""; }
 
+/* Binnen melden is vervallen (feedback vestiging 2026-11-04): besteld plus verwachte datum is
+   genoeg. Een onderdeel telt als binnen zodra de verwachte datum is aangebroken; een oude
+   handmatige binnenmelding telt ook nog. */
+function onderdeelBinnen(a) { return !!a.binnen || (!!a.besteld && !!a.verwacht && dagenTot(a.verwacht) <= 0); }
+
 /* Onderdelen-icoon: grijs zolang de werkplaats nog niet heeft gekeken, rood als er iets
-   niet besteld is of te laat komt, oranje als er nog iets onderweg is, groen als alles binnen is. */
+   niet besteld is of te laat komt, oranje als er nog iets onderweg is, groen als alles binnen is.
+   Een nalevering (aflevering gaat bewust door zonder dit onderdeel) telt niet als te laat. */
 function onderdelenStatus(o) {
   const acc = o.accessoires || [];
   if (!o.vink?.w_gecontroleerd) return "grijs";
   const grens = wpDeadline(o);
-  if (acc.some(a => !a.besteld || (grens && a.verwacht && a.verwacht > grens))) return "rood";
-  if (acc.some(a => !a.binnen)) return "oranje";
+  if (acc.some(a => !a.besteld || (grens && a.verwacht && a.verwacht > grens && !a.nalevering))) return "rood";
+  if (acc.some(a => !onderdeelBinnen(a))) return "oranje";
   return "groen";
 }
 
@@ -408,8 +431,8 @@ function verkoopDelen(o) {
     { nr: 1, label: "Kenteken toevoegen", klaar: !!o.auto?.kenteken, open: !!v.binnen },
     { nr: 2, label: "Afleverdatum bevestigen, factuur aanvragen", klaar: !!v.factuur, open: !!o.auto?.kenteken },
     { nr: 3, label: "Auto volladen", klaar: volGeladen(o), open: !!v.wp_klaar && o.geladen === "nee" },
-    { nr: 4, label: "Inplannen bij de poetser", klaar: !!o.poets?.datum && !(o.afleverdatum && o.poets.datum > o.afleverdatum), open: volGeladen(o) && faseStatus(o, 5) !== "grijs" },
-    { nr: 5, label: "Gepoetst in de showroom", klaar: !!v.showroom, open: !!o.poets?.datum }
+    { nr: 4, label: "In de poetsapp zetten", klaar: !!v.poetsapp || !!o.poets?.datum, open: volGeladen(o) && faseStatus(o, 5) !== "grijs" },
+    { nr: 5, label: "Gepoetst in de showroom", klaar: !!v.showroom, open: !!v.poetsapp || !!o.poets?.datum }
   ];
   /* de import regelt deel 1 zelf via de importlijst */
   if (o.type === "import") d[0].label = "Kenteken via de importlijst";
@@ -493,7 +516,14 @@ function wittePlaatNodig(o) { return heeftTrekhaak(o) && !!o.auto?.kenteken && !
    mogelijke aflevering 48 uur later. */
 function vroegsteNaGereed(gereed) { return plusDagen(gereed, 2); }
 function openToevoegingen(o) { return (o.toevoegingen || []).filter(t => t.status === "nieuw"); }
+/* Past een toevoeging niet, dan kiest de verkoper: doorgaan zonder het onderdeel (nalevering)
+   of de aflevering verplaatsen. Pas na die keuze, of na een nieuwe datum, is het probleem weg. */
 function toevoegingProbleem(o) {
-  return (o.toevoegingen || []).find(t => t.status === "past-niet" && !o.vink?.afgeleverd &&
+  return (o.toevoegingen || []).find(t => t.status === "past-niet" && t.keuze !== "zonder" && !o.vink?.afgeleverd &&
     o.afleverdatum && o.afleverdatum < vroegsteNaGereed(t.gereed));
 }
+
+/* ---------- fase 1 op slot na het bestellen (feedback vestiging 2026-11-04) ----------
+   Zodra er een onderdeel besteld is, kan de verkoper fase 1 niet meer wijzigen; de
+   manager kan dat wel. */
+function fase1Vergrendeld(o) { return (o.accessoires || []).some(a => a.besteld); }

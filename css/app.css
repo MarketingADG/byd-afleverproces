@@ -121,8 +121,8 @@ textarea.invoer{min-height:68px;resize:vertical;line-height:1.45}
 .melding .knop{margin-left:8px;vertical-align:middle}
 
 /* ---------- pagina ---------- */
-.pagina{padding:28px 32px 48px;max-width:1480px;width:100%}
-.pagina.smal{max-width:1200px}
+.pagina{padding:28px 32px 48px;max-width:1760px;width:100%;margin:0 auto}
+.pagina.smal{max-width:1400px}
 .pagina-kop{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 .pagina-kop h1{font-size:var(--t-titel);font-weight:800;letter-spacing:-.02em;line-height:1.2}
 .pagina-kop p{margin-top:4px}
@@ -535,3 +535,14 @@ details.opgelost .items{margin-top:10px}
 @media (max-width:1100px){.taak.beoordeel-rij{grid-template-columns:8px 1fr}.taak.beoordeel-rij>*:nth-child(n+3){grid-column:2}.taak .beoordeel{justify-content:flex-start}}
 .venster .wp-opmerking{margin:16px 20px 0;padding-top:14px}
 #wp_meldingen .taken-groep:first-child{margin-top:0}
+
+/* ---------- premierapport voor BYD (premielijst) ---------- */
+#rebate{margin-top:16px}
+#f_rebate .vinkje{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer}
+#f_rebate .vinkje input{accent-color:var(--ink)}
+.rebate-kop{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 10px}
+#rebate-uitkomst>.melding{margin-top:14px}
+.rebate-scroll{overflow-x:auto}
+.rebate-tabel{width:100%}
+.rebate-tabel .sub{font-size:var(--t-klein);color:var(--muted);margin-top:2px}
+.rebate-tabel td.mist{color:var(--st-rood);font-size:var(--t-klein);max-width:220px}

@@ -1,8 +1,6 @@
 /* ==========================================================================
    Gedeeld door alle pagina's: menu, wie er kijkt, meldingen in beeld, opmaak.
-
-   In het prototype kies je linksonder "Bekijk als" in plaats van in te loggen. Straks komt
-   de ingelogde gebruiker uit de sessie, zoals in de offertemodule (js/sessie.js daar).
+   Wie er kijkt komt uit de sessie (js/sessie.js), met de rol uit de database.
    ========================================================================== */
 
 const MAANDEN = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
@@ -26,13 +24,12 @@ function faseLabel(nr) { return nr === "ott" ? "5.1" : String(nr); }
 
 /* ---------- wie kijkt er ---------- */
 
-function huidigePersoon() {
-  let naam = null;
-  try { naam = localStorage.getItem("byd-afleverproces-persoon"); } catch (e) { }
-  return PERSONEN.find(p => p.naam === naam) || PERSONEN.find(p => p.rol === "afleverspecialist");
+function huidigePersoon() { return IK; }
+/* Wie bij deze order die rol heeft. Is er (nog) niemand met die rol, dan de rolnaam. */
+function persoonVanRol(o, rol) {
+  if (rol === "verkoper") return o.verkoper;
+  return PERSONEN.find(p => p.rol === rol)?.naam || `de ${ROLLEN[rol].toLowerCase()}`;
 }
-function kiesPersoon(naam) { try { localStorage.setItem("byd-afleverproces-persoon", naam); } catch (e) { } location.reload(); }
-function persoonVanRol(o, rol) { return rol === "verkoper" ? o.verkoper : PERSONEN.find(p => p.rol === rol)?.naam; }
 
 /* Wie mag een fase bewerken: de eigenaar, en de manager overal. Verkopers mogen ook
    taken van de afleverspecialist doen (systeemuitleg, scherm Mijn taken); de
@@ -74,8 +71,8 @@ function icoon(naam, maat = 18) {
 
 /* ---------- menu links ----------
    Elke afdeling heeft een eigen omgeving: verkoop en afleverspecialist het overzicht in drie
-   rijen, de serviceadviseur een weekagenda, de manager het dashboard. Kom je via "Bekijk als"
-   op een pagina die niet bij jouw rol hoort, dan ga je naar je eigen startpagina. */
+   rijen, de serviceadviseur een weekagenda, de manager het dashboard. Kom je op een pagina
+   die niet bij jouw rol hoort, dan ga je naar je eigen startpagina. */
 
 const MENU = {
   overzicht: ["index.html", "Overzicht", "auto"],
@@ -109,24 +106,21 @@ function kopbalk(actief) {
     poetsen: poetsOpen ? `<span class="teller">${poetsOpen}</span>` : ""
   };
   const links = MENU_PER_ROL[ik.rol].map(k => [...MENU[k], k, tellers[k] || ""]);
-  const opties = PERSONEN.map(p => `<option value="${esc(p.naam)}" ${p.naam === ik.naam ? "selected" : ""}>${esc(p.naam)} · ${ROLLEN[p.rol]}</option>`).join("");
+
 
   const zij = document.createElement("aside");
   zij.className = "zijmenu";
   zij.innerHTML = `
     <a class="zij-merk" href="${startpagina(ik.rol)}"><img src="assets/cobranding-byd.svg" alt="BYD en ADG Groep"></a>
-    <div class="zij-titel">Afleverproces Groningen</div>
+    <div class="zij-titel">Afleverproces ${esc(ik.vestiging)}</div>
     ${["verkoper", "afleverspecialist", "manager"].includes(ik.rol) ? `<a class="knop-nieuw" href="order.html?nieuw=1">${icoon("plus", 16)}Nieuwe order</a>` : ""}
     <nav class="zij-nav">${links.map(([h, t, ic, k, n]) => `<a href="${h}" class="${k === actief ? "actief" : ""}" ${k === actief ? 'aria-current="page"' : ""}>${icoon(ic)}<span>${t}</span>${n}</a>`).join("")}</nav>
     <div class="zij-onder">
       <div class="ik"><span class="avatar">${initialen(ik.naam)}</span><div><div class="nm">${esc(ik.naam)}</div><div class="rl">${ROLLEN[ik.rol]}</div></div></div>
-      <div class="bekijk"><label class="veld-lbl" for="bekijk_als">Bekijk als</label><select id="bekijk_als" class="invoer">${opties}</select></div>
-      <p class="proto">Prototype met verzonnen voorbeelddata. Alles blijft in deze browser.</p>
-      <button type="button" class="knop" id="herstel">Voorbeelddata herstellen</button>
+      <button type="button" class="knop" id="uitloggen">Uitloggen</button>
     </div>`;
   document.body.prepend(zij);
-  zij.querySelector("#bekijk_als").addEventListener("change", e => kiesPersoon(e.target.value));
-  zij.querySelector("#herstel").addEventListener("click", herstelDemo);
+  zij.querySelector("#uitloggen").addEventListener("click", uitloggen);
   return ik;
 }
 

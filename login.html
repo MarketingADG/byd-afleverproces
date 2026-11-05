@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://vvdtotcxjjeydnowzksf.supabase.co https://opendata.rdw.nl; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<title>Inloggen · Afleverproces BYD</title>
+<link rel="stylesheet" href="css/huisstijl.css?v=20261105c">
+<link rel="stylesheet" href="css/componenten.css?v=20261105d">
+<link rel="stylesheet" href="css/animaties.css?v=20261105c">
+</head>
+<body>
+
+<!-- Inloggen met het account van de offertemodule. Zelfde split-screen als daar. -->
+<div class="auth-split">
+  <div class="auth-form">
+    <div class="auth-brand"><img src="assets/cobranding-byd.svg" alt="BYD en ADG Groep"></div>
+    <div class="auth-main">
+      <form id="login_form" novalidate>
+        <h1>Inloggen</h1>
+        <p class="lead">Log in met hetzelfde e-mailadres en wachtwoord als in de offertemodule.</p>
+        <div class="auth-field">
+          <label for="login_user">E-mailadres</label>
+          <input id="login_user" type="email" autocomplete="username" placeholder="voornaam@adggroep.nl" autocapitalize="off" spellcheck="false" required>
+        </div>
+        <div class="auth-field">
+          <label for="login_pw">Wachtwoord</label>
+          <input id="login_pw" type="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="auth-submit" id="login_btn">Inloggen</button>
+        <div class="auth-error" id="login_error" role="alert"></div>
+      </form>
+
+      <form id="ww_form" novalidate hidden>
+        <h1>Kies een eigen wachtwoord</h1>
+        <p class="lead">Je logt voor het eerst in met een tijdelijk wachtwoord. Kies een eigen wachtwoord van minstens 8 tekens. Het geldt ook voor de offertemodule.</p>
+        <div class="auth-field">
+          <label for="ww_nieuw">Nieuw wachtwoord</label>
+          <input id="ww_nieuw" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="auth-field">
+          <label for="ww_herhaal">Nog een keer</label>
+          <input id="ww_herhaal" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <button type="submit" class="auth-submit" id="ww_btn">Opslaan en verder</button>
+        <div class="auth-error" id="ww_error" role="alert"></div>
+      </form>
+    </div>
+    <div class="auth-foot"><span>Afleverproces BYD</span><span>ADG Groep</span></div>
+  </div>
+  <div class="auth-aside">
+    <!-- De animatie vult het paneel (animatie-afleverproces.html, naar het voorbeeld van de
+         Toyota-offertemodule). Beeldmerk en tekst eronder blijven staan als terugval maar
+         zijn verborgen zolang de animatie er staat. -->
+    <iframe id="auth_anim" src="animatie-afleverproces.html?v=20261105a" title="Animatie: elke BYD van contract tot sleuteloverdracht in één overzicht" tabindex="-1"></iframe>
+    <svg class="merk" aria-hidden="true" viewBox="250 0 120 140" xmlns="http://www.w3.org/2000/svg">
+      <path d="m336.7,19.88l-8.47,7.72-6.27,5.71c-.06-.07-.12-.13-.18-.19-7.11-7.72-16.56-11.96-26.62-11.96-20.8,0-37.71,18.37-37.71,40.93,0,7.91,1.96,15.22,5.41,21.42l-15.42,13.18c-6.28-9.76-9.93-21.64-9.93-34.6,0-33.56,25.86-60.87,57.65-60.87,15.83,0,30.58,6.63,41.55,18.67Z"/>
+      <path d="m364.4,56.09v65.59h-19.94v-28.73c-2.79,5.44-6.56,10.43-11.22,14.8-10.32,9.67-24.21,15.22-38.08,15.22-12.1,0-23.22-3.74-32.4-10.23l15.98-13.66c4.94,2.54,10.5,3.95,16.42,3.95,14.95,0,30.82-10.59,34.38-27h-27.8v-19.94h62.67Z"/>
+    </svg>
+    <div class="streep"></div>
+    <div class="copy">
+      <span class="eyebrow">BYD Groningen</span>
+      <h2>Elke verkochte BYD van contract tot sleuteloverdracht.</h2>
+      <p>Vijf fases, per fase één eigenaar. Je ziet direct wat er bij jou ligt.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/sessie.js?v=20261105c"></script>
+<script src="js/login.js?v=20261105c"></script>
+</body>
+</html>

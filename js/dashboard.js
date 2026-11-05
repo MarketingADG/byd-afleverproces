@@ -1,12 +1,11 @@
-/* Dashboard voor de manager. Alle cijfers worden uit de orders berekend; alleen NPS per
-   maand is nog een voorbeeld, want de bron van de NPS is een open vraag (docs/plan.md). */
+/* Dashboard voor de manager. Alle cijfers worden uit de orders berekend. NPS per maand
+   volgt zodra de bron van de NPS bekend is (open vraag 3 in docs/plan.md). */
 
 const ik = kopbalk("dashboard");
 const orders = laadOrders();
 const bak = document.getElementById("dashboard");
 let periode = "maand";
 
-const VOORBEELD_NPS = [["mei", 61], ["jun", 58], ["jul", 66], ["aug", 52], ["sep", 63], ["okt", 70]];
 const MAAND_LANG = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
 
 function balken(rijen, max, eenheid, kleur = () => "") {
@@ -120,8 +119,7 @@ function teken() {
         </tbody></table>
       </section>
       <section class="paneel"><h2>NPS per maand</h2>
-        <p class="toelichting">Voorbeeldcijfers. Bron van de echte NPS is nog een open vraag.</p>
-        ${balken(VOORBEELD_NPS, 100, "")}
+        <p class="toelichting">Volgt zodra bekend is waar de NPS-score vandaan komt.</p>
       </section>
     </div>
     <section class="taken-groep dash-sectie"><h2>Wat loopt er achter <span class="n ${rood.length ? "rood" : ""}">${rood.length}</span></h2>${redenen ? `<div class="rijen">${redenen}</div>` : `<div class="leeg-staat"><h2>Niets loopt achter</h2></div>`}</section>`;

@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://vvdtotcxjjeydnowzksf.supabase.co https://opendata.rdw.nl; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
 <title>Briefje handelsauto · Afleverproces BYD Groningen</title>
-<link rel="stylesheet" href="css/huisstijl.css?v=20261104c">
+<link rel="stylesheet" href="css/huisstijl.css?v=20261105c">
 <style>
   /* A4 staand, alleen zwart: scheelt inkt. Het logo gaat ook naar grijs. */
   @page { size: A4 portrait; margin: 0; }
@@ -27,39 +29,11 @@
 </style>
 </head>
 <body>
-<div class="knoppen"><button onclick="print()">Opslaan als pdf of printen</button><span>Kies in het printvenster "Opslaan als pdf" om hem te downloaden.</span></div>
+<div class="knoppen"><button type="button" id="printen">Opslaan als pdf of printen</button><span>Kies in het printvenster "Opslaan als pdf" om hem te downloaden.</span></div>
 <div id="vel"></div>
-<script src="js/proces.js?v=20261104c"></script>
-<script src="js/demo-data.js?v=20261104c"></script>
-<script src="js/ui.js?v=20261104c"></script>
-<script>
-  const o = laadOrders().find(x => x.id === new URLSearchParams(location.search).get("id"));
-  const lang = iso => { const d = naarDatum(iso); return `${d.getDate()} ${["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"][d.getMonth()]} ${d.getFullYear()}`; };
-
-  function teken(auto) {
-    const ingeleverd = o.vink.afgeleverd?.op.slice(0, 10);
-    document.getElementById("vel").innerHTML = `
-      <div class="vel">
-        <div class="boven"><img src="assets/adg-groep.svg" alt="ADG Groep"><span class="wat">Inruil</span></div>
-        <h1>Handelsauto</h1>
-        <div class="plaat">${esc(o.inruil.kenteken.toUpperCase())}</div>
-        ${auto ? `<div class="auto">${esc(auto.merk)} ${esc(auto.model || "")}</div>` : `<div class="auto leeg">Merk en model niet gevonden bij de RDW.</div>`}
-        <div class="onder">
-          <div><div class="lbl">Ingeleverd op</div><div class="w">${ingeleverd ? lang(ingeleverd) : "Nog niet afgeleverd"}</div></div>
-          <div><div class="lbl">Verkoper</div><div class="w">${esc(o.verkoper)}</div></div>
-        </div>
-      </div>`;
-  }
-
-  if (!o || !o.heeftInruil || !o.inruil?.kenteken) {
-    document.getElementById("vel").innerHTML = `<p style="text-align:center">Geen inruil gevonden bij deze order.</p>`;
-  } else if (o.inruil.merk) {
-    teken({ merk: o.inruil.merk, model: o.inruil.model });
-  } else {
-    /* nog niet opgehaald bij het invullen: nu alsnog bij de RDW */
-    document.getElementById("vel").innerHTML = `<p style="text-align:center">Merk en model ophalen bij de RDW...</p>`;
-    rdwAuto(o.inruil.kenteken).then(teken);
-  }
-</script>
+<script src="js/proces.js?v=20261105c"></script>
+<script src="js/sessie.js?v=20261105c"></script>
+<script src="js/ui.js?v=20261105c"></script>
+<script data-start="js/briefje-handelsauto.js?v=20261105c"></script>
 </body>
 </html>

@@ -188,7 +188,7 @@ function zetVink(o, key, aan) {
   o.log.push({ op: nu(), door: ik.naam, wat: `${WP_LABEL[key]} ${aan ? "afgevinkt" : "teruggezet"}`, ...(aan ? {} : { terug: true }) });
   if (aan && faseStatus(o, 4) === "groen") o.log.push({ op: nu(), door: ik.naam, wat: "Fase 4 afgerond" });
   bewaar(orders);
-  if (aan && key === "wp_klaar") toast("WP-klaar. De afspraak in de Outlook-agenda van bydgroningen@ gaat straks vanzelf naar WP-klaar.", "groen");
+  if (aan && key === "wp_klaar") toast("WP-klaar. Zet dit ook bij de afspraak in de agenda van bydgroningen@.", "groen");
   else if (aan && key === "wp_ingepland") toast(`${klantNaam(o)} staat ingepland. Terugzetten kan via Behandeld.`);
   tekenWeek(); tekenTaken();
 }
