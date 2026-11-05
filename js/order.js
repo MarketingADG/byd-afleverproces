@@ -105,9 +105,11 @@ function puntHtml(p, mag) {
   switch (p.soort) {
     case "tekst": case "getal": case "datum": case "tijd": {
       const w = lees(o, p.pad);
-      const type = { getal: "number", datum: "date", tijd: "time" }[p.soort] || "text";
+      const euro = p.eenheid === "€";
+      const type = euro ? "text" : ({ getal: "number", datum: "date", tijd: "time" }[p.soort] || "text");
+      const val = euro ? (w === "" || w == null ? "" : "€ " + Number(w).toLocaleString("nl-NL")) : (w ?? "");
       ctl = mag
-        ? `<input id="${id}" class="invoer ${p.soort === "tekst" ? "" : "half"}" type="${type}" data-pad="${p.pad}" data-soort="${p.soort}" ${dl} value="${esc(w ?? "")}">`
+        ? `<input id="${id}" class="invoer ${p.soort === "tekst" ? "" : "half"}" type="${type}" ${euro ? 'inputmode="numeric"' : ""} data-pad="${p.pad}" data-soort="${euro ? "bedrag" : p.soort}" ${dl} value="${esc(val)}">`
         : `<span class="waarde">${esc(waardeTekst(p, w))}</span>`;
       break;
     }
@@ -553,6 +555,7 @@ hoofd.addEventListener("change", e => {
   if (d.pad) {
     let w = t.value;
     if (d.soort === "getal") w = w === "" ? "" : Number(w);
+    else if (d.soort === "bedrag") { const c = String(t.value).replace(/[^\d,]/g, "").replace(",", "."); w = c === "" ? "" : Number(c); }
     wijzig(() => {
       zet(o, d.pad, w);
       if (d.pad === "type" && w !== "nieuw") o.voorraad = null;
