@@ -128,12 +128,15 @@ async function orderOpslaan(id) {
     if (!b) return;
     await rpc("aflever_dossier_verwijderen", { p_token: sessieToken(), p_id: id });
     BEWAARD.delete(id);
+    agendaSync(id);
     return;
   }
   const json = JSON.stringify(o);
   if (b && b.json === json) return;
   const versie = await rpc("aflever_dossier_opslaan", { p_token: sessieToken(), p_id: id, p_data: JSON.parse(json), p_versie: b ? b.versie : null });
+  const was = b ? b.json : null;
   BEWAARD.set(id, { json, versie });
+  if (!was || agendaVelden(was) !== agendaVelden(json)) agendaSync(id);
 }
 
 function lijstBewaren(soort, lijst) {
@@ -145,6 +148,37 @@ function lijstBewaren(soort, lijst) {
     if (json === l.json) return;
     l.versie = await rpc("aflever_lijst_opslaan", { p_token: sessieToken(), p_soort: soort, p_data: JSON.parse(json), p_versie: l.versie });
     l.json = json;
+  });
+}
+
+/* ---------- Outlook-agenda (v0.4) ----------
+   Na elke wijziging die de afspraak raakt, en als vangnet bij elk openen, vraagt de module
+   de server (edge function aflever-agenda) de agenda van bydgroningen@ bij te werken.
+   Mislukt dat, dan gaat de opslag gewoon door: het volgende openen en de dagelijkse
+   controle om 03.45 proberen het opnieuw. */
+
+function agendaVelden(json) {
+  try {
+    const o = JSON.parse(json);
+    return JSON.stringify([o.concept, o.gewist, o.afleverdatum, o.aflevertijd,
+      o.klant && o.klant.naam, o.auto && o.auto.model, o.auto && o.auto.chassis,
+      o.verkoper, o.mastercare, o.ordernummer]);
+  } catch (e) { return ""; }
+}
+
+let agendaGemeld = false;
+function agendaSync(id, stil) {
+  fetch(`${SB_URL}/functions/v1/aflever-agenda`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+    body: JSON.stringify({ token: sessieToken(), dossier: id || null })
+  }).then(async r => {
+    const d = await r.json().catch(() => null);
+    if (!r.ok || (d && d.fouten && d.fouten.length)) throw new Error("agenda niet bijgewerkt");
+  }).catch(() => {
+    if (stil || agendaGemeld) return;
+    agendaGemeld = true;
+    toast("De Outlook-agenda kon nu niet worden bijgewerkt. De module probeert het later vanzelf opnieuw.");
   });
 }
 
@@ -269,6 +303,9 @@ async function opstarten() {
 
   /* orders en importlijst op chassisnummer gelijktrekken */
   if (koppelImports(ORDERS, LIJSTEN.imports.data)) { bewaar(); bewaarImports(LIJSTEN.imports.data); }
+
+  /* vangnet: agenda-wijzigingen die eerder niet lukten alsnog doorvoeren */
+  agendaSync(null, true);
 
   document.documentElement.style.visibility = "";
   try {
