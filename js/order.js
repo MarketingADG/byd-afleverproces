@@ -500,6 +500,7 @@ function teken() {
       <dl class="feiten">
         ${feit("Verkoper", esc(o.verkoper))}
         ${feit("Order", esc(o.ordernummer || "Nog geen nummer"))}
+        ${o.bron === "offertemodule" ? feit("Offerte", esc(o.id)) : ""}
         ${feit("Levertijd", o.levertijd ? datumKort(o.levertijd) : "Nog invullen")}
         ${feit("Aflevering", o.afleverdatum ? datumKort(o.afleverdatum) + (o.aflevertijd ? ", " + o.aflevertijd.replace(":", ".") : "") : "Nog niet gepland")}
         ${feit("Te betalen", o.te_betalen != null && o.te_betalen !== "" ? bedrag(o.te_betalen) : "Nog invullen")}

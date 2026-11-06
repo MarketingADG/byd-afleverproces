@@ -206,7 +206,8 @@ function orderVanKoppeling(rij) {
   const model = (auto.model || "").replace(" MY26", "");
   const opm = [p.financieringsvoorbehoud ? "Verkocht onder voorbehoud van financiering." : ""].filter(Boolean).join(" ");
   const o = {
-    id: rij.offerte_id, ordernummer: rij.offerte_id, concept: true, bron: "offertemodule",
+    /* ordernummer komt uit CarIt en kent de offertemodule niet; de verkoper vult het in fase 1 in */
+    id: rij.offerte_id, ordernummer: "", concept: true, bron: "offertemodule",
     type: p.type === "gebruikt" ? "gebruikt" : "nieuw",
     voorraad: null,
     verkoper: rij.verkoper,

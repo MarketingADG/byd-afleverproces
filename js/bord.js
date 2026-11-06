@@ -95,7 +95,7 @@ function teken() {
   const verkoper = fVerkoper.value;
   const zichtbaar = orders.filter(o =>
     (!verkoper || o.verkoper === verkoper) &&
-    (!zoek || [klantNaam(o), o.auto.model, o.auto.kenteken, meldcode(o), o.ordernummer].join(" ").toLowerCase().includes(zoek)));
+    (!zoek || [klantNaam(o), o.auto.model, o.auto.kenteken, meldcode(o), o.ordernummer, o.id].join(" ").toLowerCase().includes(zoek)));
   const per = n => zichtbaar.filter(o => rijVan(o) === n);
   const opDatum = (a, b) => (a || "9999").localeCompare(b || "9999");
 
