@@ -372,7 +372,7 @@ function faseHtml(f) {
       </div></div>`;
   if (f.nr === 3) voet = `<div class="fase-voet">
       <button type="button" class="knop" id="agenda" ${o.afleverdatum && o.aflevertijd ? "" : "disabled"}>Zet in agenda</button>
-      <button type="button" class="knop" id="mailca" ${o.afleverdatum && o.aflevertijd ? "" : "disabled"}>Stuur naar CA</button>
+      <button type="button" class="knop" id="mailva" ${o.afleverdatum && o.aflevertijd ? "" : "disabled"}>Afleverformulier naar VA</button>
       <a class="knop" href="briefje.html?id=${o.id}" target="_blank">Print briefje voorruit</a></div>`;
 
   return `<section class="fase ${status === "grijs" ? "op-slot" : magRol ? "" : "alleen-lezen"}" id="fase-${f.nr}" aria-labelledby="fase-titel">
@@ -542,48 +542,35 @@ function agendaBestand() {
   toast("Afspraak gedownload. Open hem en sla hem op in de agenda van bydgroningen@.");
 }
 
-/* ---------- aflevergegevens als klaargezette mail naar de administratie (CA) ----------
-   Opent meteen een nieuwe mail in Outlook (mailto), gericht aan ca@adggroep.nl, met de
-   aflevergegevens in de tekst. mailto kan alleen platte tekst, dus gegroepeerde regels in
-   plaats van een echte tabel. De verkoper controleert en verstuurt zelf. */
-function mailNaarCa() {
-  const k = o.klant || {}, a = o.auto || {};
-  const adres = [k.postcode, k.huisnr].filter(Boolean).join(" ");
-  const aflevering = o.afleverdatum
-    ? `${datumKort(o.afleverdatum)}${o.aflevertijd ? ", " + blokTekst(o.aflevertijd) : ""}`
-    : "Nog niet gepland";
-  const jaNee = v => v === true ? "Ja" : v === false ? "Nee" : "Nog niet gekozen";
-  const leeg = "Nog niet ingevuld";
-
-  const rijen = [
-    ["kop", "Order"],
-    ["Ordernummer", o.ordernummer || "Nog geen nummer"],
-    ["Soort", TYPES[o.type] || leeg],
-    ["Verkoper", o.verkoper || leeg],
-    ["kop", "Klant"],
-    ["Naam", klantNaam(o)],
-    ["Postcode en huisnummer", adres || leeg],
-    ["E-mail", k.email || leeg],
-    ["Telefoon", k.tel || leeg],
-    ["kop", "Auto"],
-    ["Model", autoNaam(o) || leeg],
-    ["Uitvoering", a.uitvoering || leeg],
-    ["Kleur", a.kleur || leeg],
-    ["Kenteken", a.kenteken || leeg],
-    ["Chassisnummer (VIN)", a.chassis || leeg],
-    ["Meldcode", meldcode(o) || leeg],
-    ["kop", "Aflevering en financieel"],
-    ["Afleverdatum", aflevering],
-    ["Mastercare", jaNee(o.mastercare)],
-    ["OTT-tenaamstelling", jaNee(o.ott)],
-    ["Toe te betalen", o.te_betalen != null && o.te_betalen !== "" ? bedrag(o.te_betalen) : leeg]
-  ];
-
-  const tekst = rijen.map(([label, val]) => label === "kop" ? `\r\n${val}` : `  ${label}: ${val}`).join("\r\n");
-  const body = `Hierbij de aflevergegevens voor ${klantNaam(o)}.\r\n${tekst}\r\n\r\nMet vriendelijke groet,\r\n${o.verkoper || ""}`;
-  const onderwerp = `Afleverformulier ${o.ordernummer || meldcode(o) || o.id} - ${klantNaam(o)}`;
-
-  location.href = `mailto:ca@adggroep.nl?subject=${encodeURIComponent(onderwerp)}&body=${encodeURIComponent(body)}`;
+/* ---------- afleverformulier naar de voertuigadministratie (VA) ----------
+   De server (edge function aflever-mail) verstuurt het afleverformulier vanaf bydgroningen@
+   naar va@adggroep.nl, met bydgroningen@ en de verkoopleider in de cc en de verkoper als
+   reply-to. Het formulier komt uit de opgeslagen order, dus eerst wachten tot alles bewaard is. */
+let vaBezig = false;
+async function mailNaarVa(knop) {
+  if (vaBezig) return;
+  if (!o.ordernummer) { toast("Vul eerst het CarIt-ordernummer in bij fase 1. Zonder dat nummer kan VA het formulier niet verwerken."); return; }
+  if (!confirm(`Afleverformulier van ${klantNaam(o)} nu naar va@adggroep.nl sturen?`)) return;
+  vaBezig = true;
+  knop.disabled = true;
+  try {
+    bewaar();
+    await wachtOpOpslaan();
+    const r = await fetch(`${SB_URL}/functions/v1/aflever-mail`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+      body: JSON.stringify({ token: sessieToken(), actie: "va", dossier: o.id, soort: "factuur" })
+    });
+    const d = await r.json().catch(() => null);
+    if (!r.ok) throw new Error(d && d.fout || "De mail kon niet worden verstuurd");
+    wijzig(() => {}, "Afleverformulier gemaild naar VA");
+    toast("Afleverformulier verstuurd naar va@adggroep.nl. Je ziet hem terug in bydgroningen@.");
+  } catch (e) {
+    toast(`${e.message}. Probeer het zo opnieuw.`);
+  } finally {
+    vaBezig = false;
+    knop.disabled = false;
+  }
 }
 
 /* ---------- invoer ---------- */
@@ -713,7 +700,7 @@ hoofd.addEventListener("click", e => {
     toast(`Staat direct in de takenlijst van ${o.verkoper}; de afleverspecialist ziet hem ook. De werkplaats kan verder na zijn reactie.`); return;
   }
   if (t.id === "agenda") agendaBestand();
-  if (t.id === "mailca") mailNaarCa();
+  if (t.id === "mailva") mailNaarVa(t);
   if (t.id === "wijz_sturen") {
     const datum = document.getElementById("wijz_datum").value, blok = document.getElementById("wijz_blok").value;
     if (!datum) { toast("Kies de nieuwe afleverdatum."); return; }
