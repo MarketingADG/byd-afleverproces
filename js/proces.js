@@ -151,6 +151,10 @@ function puntenVoor(o, nr) {
       add("Auto", { key: "chassis", label: "Chassisnummer", soort: "tekst", pad: "auto.chassis", verplicht: false, hint: "Koppelen zodra bekend" });
     } else if (o.type === "import") {
       add("Auto", { key: "chassis", label: "Auto uit de importlijst", soort: "importkeuze", pad: "auto.chassis", hint: "Kenteken en binnenmelding lopen via de importlijst" });
+    } else if (o.type === "gebruikt") {
+      /* een occasion heeft al een kenteken; dat komt uit de offerte en hoeft in fase 3 niet opnieuw (feedback Mark) */
+      add("Auto", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken", hint: "Komt mee uit de offerte" });
+      add("Auto", { key: "chassis", label: "Chassisnummer", soort: "tekst", pad: "auto.chassis", verplicht: false });
     } else {
       add("Auto", { key: "chassis", label: "Chassisnummer of kenteken", soort: "tekst", pad: "auto.chassis" });
     }
@@ -162,7 +166,8 @@ function puntenVoor(o, nr) {
       afspraak("Auto");
       add("Auto", { key: "binnen", label: "Auto binnen gemeld", soort: "actie", knop: "Auto is binnen", hint: "Staat al op de vestiging, dus meteen binnen melden" });
     }
-    add("Auto", { key: "acc_info", label: "Accessoires", soort: "info", tekst: "Komen rechtstreeks mee uit de offerte. De serviceadviseur controleert ze in fase 2 tegen de orderbevestiging uit CarIt.", verplicht: false });
+    /* de verkoper ziet welke accessoires er uit de offerte zijn meegekomen (feedback Mark) */
+    add("Auto", { key: "accessoires", label: "Accessoires", soort: "lijst", alleenLezen: true, verplicht: false, hint: "Uit de offerte. De serviceadviseur controleert ze in fase 2 tegen de orderbevestiging uit CarIt." });
 
     if (nieuw) {
       add("Premie en deal", { key: "premie", label: "Premie", soort: "premiekeuze", pad: "premie.id", verplicht: false });
@@ -202,10 +207,14 @@ function puntenVoor(o, nr) {
     add("Ontvangst", { key: "binnen", label: "Auto binnen gemeld", soort: "actie", knop: "Auto is binnen" });
     if (o.type === "nieuw") {
       add("Kenteken", { key: "kent_aangevraagd", label: "Kenteken aangevraagd", soort: "actie", knop: "Kenteken aangevraagd" });
-      add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken", hint: heeftTrekhaak(o) ? "Trekhaak op de order: zodra het kenteken er staat, krijgt de serviceadviseur de taak om de witte kentekenplaat te bestellen" : "" });
+      const reg = premieRegistratie(o);
+      add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken", hint: [
+        reg && `${o.premie.soort}: kenteken uiterlijk ${datumKortP(reg)} op naam, anders vervalt de premie`,
+        heeftTrekhaak(o) && "Trekhaak op de order: zodra het kenteken er staat, krijgt de serviceadviseur de taak om de witte kentekenplaat te bestellen"
+      ].filter(Boolean).join(". ") });
     }
     /* een occasion heeft al een kenteken: niets aanvragen, alleen overnemen (feedback vestiging) */
-    if (o.type === "gebruikt") add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "tekst", pad: "auto.kenteken", hint: heeftTrekhaak(o) ? "Trekhaak op de order: zodra het kenteken er staat, krijgt de serviceadviseur de taak om de witte kentekenplaat te bestellen" : "Al bekend bij een occasion, geen aanvraag nodig" });
+    if (o.type === "gebruikt") add("Kenteken", { key: "kenteken_info", label: "Kenteken", soort: "info", tekst: o.auto?.kenteken ? `${o.auto.kenteken}, uit fase 1. Een occasion heeft al een kenteken.` : "Vul het kenteken in bij fase 1.", verplicht: false });
     if (o.type === "import") add("Kenteken", { key: "kenteken", label: "Kenteken", soort: "import", hint: "Komt vanzelf binnen zodra de importlijst op kenteken bekend staat" });
     add("Ontvangst", { key: "wp_deadline", label: "Werkplaats klaar uiterlijk", soort: "info", tekst: "Volgt uit de afleverdatum.", verplicht: false });
     add("Afspraak met klant", { key: "k_geboorte", label: "Geboortedatum klant", soort: "datum", pad: "klant.geboortedatum", verplicht: false, hint: "Voor de verzekeringsofferte" });
@@ -317,18 +326,36 @@ function faseTeLaat(o, nr) {
   }
   if (nr === 3) {
     const aangevraagd = o.vink?.kent_aangevraagd?.op;
-    return !!aangevraagd && !o.auto?.kenteken && dagenTot(aangevraagd.slice(0, 10)) < -4;
+    return !!aangevraagd && !o.auto?.kenteken && dagenTot(aangevraagd.slice(0, 10)) <= -(KENTEKEN_TAAK_NA + KENTEKEN_ROOD_NA);
   }
   if (nr === 4) return !!wpDeadline(o) && wpMoment(o) < nuMoment();
   if (nr === 5) return !!o.afleverdatum && dagenTot(o.afleverdatum) < 0;
   return false;
 }
 
+/* Kenteken aangevraagd: de dag erna krijgt de verkoper de taak het toe te voegen, 2 dagen
+   later staat hij op rood (feedback Mark 2026-11-09). */
+const KENTEKEN_TAAK_NA = 1, KENTEKEN_ROOD_NA = 2;
+
+/* Uiterste registratiedatum van de gekozen premie: het kenteken moet uiterlijk dan op naam
+   staan, anders betaalt BYD de premie niet uit. Alleen relevant zolang er geen kenteken is. */
+const PREMIE_REG_WAARSCHUW = 10;   /* dagen vooraf een taak voor de verkoper */
+function premieRegistratie(o) { return o.premie && o.premie.id !== "geen" && o.premie.reg ? o.premie.reg : null; }
+function premieRegKnelt(o) {
+  const reg = premieRegistratie(o);
+  return !!reg && !o.auto?.kenteken && !o.vink?.afgeleverd && dagenTot(reg) <= PREMIE_REG_WAARSCHUW;
+}
+function kentekenTaakOpen(o) {
+  if (o.type !== "nieuw") return !!o.vink?.binnen;
+  const op = o.vink?.kent_aangevraagd?.op;
+  return !!op && dagenTot(op.slice(0, 10)) <= -KENTEKEN_TAAK_NA;
+}
+
 /* Dezelfde regels als faseTeLaat, maar dan als zin voor op het scherm. */
 function waaromTeLaat(o, nr) {
   if (levertijdVoorbij(o)) return "Verwachte leverdatum is 4 dagen of meer voorbij";
   if (nr === 2) return "Onderdeel komt na de WP-deadline binnen";
-  if (nr === 3) return "Kenteken langer dan 4 dagen onderweg";
+  if (nr === 3) return `Kenteken ${KENTEKEN_ROOD_NA} dagen na de taak nog niet toegevoegd`;
   if (nr === 4) return `Nog niet werkplaatsklaar, moest ${datumKortP(wpDeadline(o))}${o.aflevertijd ? " om " + o.aflevertijd.replace(":", ".") : ""} klaar zijn`;
   if (nr === 5) return "Afleverdatum is voorbij";
   return "";
@@ -404,14 +431,15 @@ function wpKlaarTekst(o) { return wpDeadline(o) ? `${datumKortP(wpDeadline(o))}$
 function onderdeelBinnen(a) { return !!a.binnen || (!!a.besteld && !!a.verwacht && dagenTot(a.verwacht) <= 0); }
 
 /* Onderdelen-icoon: grijs zolang de werkplaats nog niet heeft gekeken, rood als er iets
-   niet besteld is of te laat komt, oranje als er nog iets onderweg is, groen als alles binnen is.
+   niet besteld is of te laat komt, oranje als er een verwachte datum ontbreekt, groen zodra
+   alles besteld is met een verwachte datum: binnen melden hoeft niet (feedback Mark 2026-11-09).
    Een nalevering (aflevering gaat bewust door zonder dit onderdeel) telt niet als te laat. */
 function onderdelenStatus(o) {
   const acc = o.accessoires || [];
   if (!o.vink?.w_gecontroleerd) return "grijs";
   const grens = wpDeadline(o);
   if (acc.some(a => !a.besteld || (grens && a.verwacht && a.verwacht > grens && !a.nalevering))) return "rood";
-  if (acc.some(a => !onderdeelBinnen(a))) return "oranje";
+  if (acc.some(a => !a.verwacht)) return "oranje";
   return "groen";
 }
 
@@ -428,7 +456,7 @@ function werkplaatsStatus(o) {
 function verkoopDelen(o) {
   const v = o.vink || {};
   const d = [
-    { nr: 1, label: "Kenteken toevoegen", klaar: !!o.auto?.kenteken, open: !!v.binnen },
+    { nr: 1, label: "Kenteken toevoegen", klaar: !!o.auto?.kenteken, open: kentekenTaakOpen(o) },
     { nr: 2, label: "Afleverdatum bevestigen, factuur aanvragen", klaar: !!v.factuur, open: !!o.auto?.kenteken },
     { nr: 3, label: "Auto volladen", klaar: volGeladen(o), open: !!v.wp_klaar && o.geladen === "nee" },
     { nr: 4, label: "In de poetsapp zetten", klaar: !!v.poetsapp || !!o.poets?.datum, open: volGeladen(o) && faseStatus(o, 5) !== "grijs" },
@@ -471,11 +499,63 @@ function autoNaam(o) {
 
 function meldcode(o) { return (o.auto?.chassis || o.chassis || "").slice(-4).toUpperCase(); }
 
-/* Vroegst mogelijke afleverdatum: auto binnen + 6 werkdagen klaarmaken + 2 dagen. Nog niet
-   binnen gemeld, dan rekenen vanaf vandaag: je plant de datum bij binnenkomst. */
+/* Vroegst mogelijke afleverdatum: auto binnen + werkdagen klaarmaken (standaard 6, de
+   werkplaats kan dat tijdelijk aanpassen) + 2 werkdagen verkoop (feedback Mark 2026-11-09).
+   Nog niet binnen gemeld, dan rekenen vanaf vandaag: je plant de datum bij binnenkomst.
+   Eerder kan alleen na akkoord van de werkplaats (vervroeging). */
+const VERKOOP_DAGEN = 2;
 function vroegsteAflevering(o) {
-  const binnen = o.vink?.binnen?.op?.slice(0, 10) || naarIso(vandaag());
-  return plusDagen(plusWerkdagen(binnen, 6), 2);
+  const vandaagIso = naarIso(vandaag());
+  const binnen = o.vink?.binnen?.op?.slice(0, 10) || vandaagIso;
+  const naWerkplaats = plusWerkdagen(binnen, (typeof wpDagen === "function" ? wpDagen() : 6) + VERKOOP_DAGEN);
+  /* is de auto al lang binnen, dan heeft de verkoop nog altijd 2 werkdagen vanaf vandaag */
+  const naVerkoop = plusWerkdagen(vandaagIso, VERKOOP_DAGEN);
+  return naWerkplaats > naVerkoop ? naWerkplaats : naVerkoop;
+}
+/* Is deze datum te vroeg? Een door de werkplaats goedgekeurde vervroeging mag wel. */
+function datumTeVroeg(o, datum) {
+  if (!datum) return false;
+  if (o.vervroeging?.status === "akkoord" && o.vervroeging.datum === datum) return false;
+  return datum < vroegsteAflevering(o);
+}
+function vervroegingOpen(o) { return o.vervroeging?.status === "open"; }
+
+/* Het afleverformulier zoals VA hem krijgt: kolom A en B van het werkblad, rij 1 tot en met
+   44. Dezelfde lijst staat in de edge function aflever-mail (wip/m365/edge-mail/index.ts);
+   wijzig ze altijd samen. Hier alleen om het formulier vóór het versturen te laten zien. */
+function premieRegels(o, euro) {
+  const r = { inruil: "", retail: "", voorraad: "", strijdfonds: "", fleet: "", ap: "", aanvullend: "", dropp: "" };
+  const p = o.premie;
+  if (p && p.id !== "geen" && typeof p.bedrag === "number") {
+    const s = String(p.soort || "").toLowerCase();
+    const rij = s.includes("inruil") ? "inruil" : s.includes("retail") ? "retail" : s.includes("voorraad") ? "voorraad"
+      : s.includes("strijd") ? "strijdfonds" : s.includes("fleet") ? "fleet" : "";
+    if (rij) r[rij] = euro(p.bedrag); else r.aanvullend = `${euro(p.bedrag)} ${p.soort || "premie"}`;
+    if (p.code) r.ap = String(p.code);
+  }
+  if (o.heeftDeal && o.deal && typeof o.deal.bedrag === "number") {
+    const t = `${euro(o.deal.bedrag)} ${o.deal.omschrijving || "speciale deal"}`;
+    r.aanvullend = r.aanvullend ? `${r.aanvullend} + ${t}` : t;
+    if (o.deal.code) r.dropp = String(o.deal.code);
+  }
+  return r;
+}
+function afleverRijen(o) {
+  const euro = n => typeof n === "number" && isFinite(n) ? "€ " + n.toLocaleString("nl-NL", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }) : "";
+  const nl = iso => iso ? iso.split("-").reverse().join("-") : "";
+  const r = (a, b = "") => [a, b], w = ["", ""];
+  const pr = premieRegels(o, euro);
+  return [r("Afleverformulier"), r("Minimaal 6 werkdagen vóór aflevering indienen bij V.A."), w,
+    r("Ordernummer", o.ordernummer || ""), w, r("Klantnaam", klantNaam(o)), w, r("Afleverdatum", nl(o.afleverdatum)), w,
+    r("Actuele km-stand"), w, r("VAN IMPORTEUR TE ONTVANGEN BEDRAGEN:"),
+    r("Inruilpremie excl. dealerbijdrage (incl. BTW)", pr.inruil),
+    r("Retailpremie (incl. BTW)", pr.retail), r("Voorraadpremie (incl. BTW)", pr.voorraad), r("Strijdfonds (incl. BTW)", pr.strijdfonds), r("Fleetondersteuning (incl. BTW)", pr.fleet),
+    r("              - AP-code:", pr.ap), r("Aanvullende toezeggingen (incl. BTW)", pr.aanvullend), r("              - DROPP-ticket:", pr.dropp), w,
+    r("Boekwaarde inruiler (bij gebruikt of via CC) incl. BTW", euro(o.inruil?.boekwaarde)), w,
+    r("Gegevens inruiler ingevuld", o.heeftInruil ? "" : "N.V.T."), w, r("Toe te betalen bedrag incl. BTW", euro(o.te_betalen)), w,
+    r("Aanbetaling financiering / PL indien van toepassing"), w, r("Aantal km per jaar"), w, r("NAWTE-gegevens gecontroleerd"), w,
+    r("Klant overdragen"), w, r("Centraal Bestelorder"), w, r("E-mailadres tbv factuur", o.klant?.email || ""), w,
+    r("E-mailadres tbv mobiliteitspas"), w, r("Onderstaande in te vullen door Centrale Administratie"), w, r("Kenteken")];
 }
 
 /* Klantgegevens gaan 30 dagen na aflevering weg. */

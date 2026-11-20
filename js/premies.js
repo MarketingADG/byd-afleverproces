@@ -14,6 +14,17 @@ let premies = laadPremies();
 let soorten = laadPremiesoorten();
 
 function nieuwId() { return "p" + Date.now().toString(36); }
+const NIEUW = "__nieuw";   /* keuze in het premieformulier: meteen een nieuwe premiesoort aanmaken */
+
+/* nieuwe premiesoort aan de lijst toevoegen; geeft de naam zoals hij in de lijst staat, of null */
+function soortToevoegen(naam) {
+  const s = (naam || "").trim();
+  if (!s) { toast("Vul de naam van de premiesoort in."); return null; }
+  const al = soorten.find(x => x.toLowerCase() === s.toLowerCase());
+  if (al) return al;
+  soorten.push(s);
+  return s;
+}
 
 function teken() {
   const rijen = [...premies].sort((a, b) =>
@@ -21,17 +32,18 @@ function teken() {
   bak.innerHTML = `
     <section class="paneel">
       <h2>Premies per model</h2>
-      <p class="toelichting">Een model kan meerdere premiesoorten hebben; de verkoper kiest er bij de order één uit. Wijzig een bedrag, code of datum en het staat meteen goed in nieuwe orders.</p>
-      ${rijen.length ? `<table class="tabel premietabel"><thead><tr><th>Model</th><th>Premiesoort</th><th>Premie</th><th>Premiecode</th><th>Geldig tot en met</th><th>Laatst gewijzigd</th><th><span class="vh">Verwijderen</span></th></tr></thead><tbody>
+      <p class="toelichting">Een model kan meerdere premiesoorten hebben; de verkoper kiest er bij de order één uit. Bedragen zijn inclusief btw. Wijzig een bedrag, code of datum en het staat meteen goed in nieuwe orders.</p>
+      ${rijen.length ? `<table class="tabel premietabel"><thead><tr><th>Model</th><th>Premiesoort</th><th>Premie incl. btw</th><th>Premiecode</th><th>Geldig tot en met</th><th>Uiterste registratiedatum</th><th>Laatst gewijzigd</th><th><span class="vh">Verwijderen</span></th></tr></thead><tbody>
         ${rijen.map((p, i) => {
           const eerste = i === 0 || rijen[i - 1].model !== p.model;
           const naam = esc(`${p.model}, ${p.soort}`);
           return `<tr class="${eerste ? "nieuw-model" : ""} ${p.tot && dagenTot(p.tot) < 0 ? "te-laat" : ""}">
           <td>${eerste ? `<b>${esc(p.model)}</b>` : `<span class="vh">${esc(p.model)}</span>`}</td>
           <td>${esc(p.soort)}</td>
-          <td><label class="vh" for="b_${p.id}">Premie ${naam}</label><input id="b_${p.id}" class="invoer" type="number" min="0" step="50" data-id="${p.id}" data-veld="bedrag" value="${p.bedrag}"></td>
+          <td><label class="vh" for="b_${p.id}">Premie incl. btw ${naam}</label><input id="b_${p.id}" class="invoer" type="number" min="0" step="50" data-id="${p.id}" data-veld="bedrag" value="${p.bedrag}"></td>
           <td><label class="vh" for="c_${p.id}">Premiecode ${naam}</label><input id="c_${p.id}" class="invoer" data-id="${p.id}" data-veld="code" value="${esc(p.code || "")}"></td>
           <td><label class="vh" for="t_${p.id}">Geldig tot ${naam}</label><input id="t_${p.id}" class="invoer" type="date" data-id="${p.id}" data-veld="tot" value="${p.tot || ""}"></td>
+          <td><label class="vh" for="r_${p.id}">Uiterste registratiedatum ${naam}</label><input id="r_${p.id}" class="invoer" type="date" data-id="${p.id}" data-veld="reg" value="${p.reg || ""}"></td>
           <td>${p.gewijzigd ? `${esc(p.gewijzigd.door)}, ${tijdstip(p.gewijzigd.op)}` : ""}</td>
           <td><button type="button" class="knop link" data-weg="${p.id}">Verwijderen</button></td></tr>`;
         }).join("")}
@@ -39,14 +51,16 @@ function teken() {
     </section>
     <form class="paneel" id="f_premie">
       <h2>Premie toevoegen</h2>
-      ${soorten.length ? `<div class="form-grid">
+      <div class="form-grid">
         <div class="veld"><label class="veld-lbl" for="n_model">Model</label><select id="n_model" name="model" class="invoer" required>${MODELLEN.map(m => `<option>${esc(m)}</option>`).join("")}</select></div>
-        <div class="veld"><label class="veld-lbl" for="n_soort">Premiesoort</label><select id="n_soort" name="soort" class="invoer" required>${soorten.map(s => `<option>${esc(s)}</option>`).join("")}</select></div>
-        <div class="veld"><label class="veld-lbl" for="n_bedrag">Premie in euro</label><input id="n_bedrag" name="bedrag" class="invoer" type="number" min="0" step="50" required></div>
+        <div class="veld"><label class="veld-lbl" for="n_soort">Premiesoort</label><select id="n_soort" name="soort" class="invoer" required>${soorten.map(s => `<option>${esc(s)}</option>`).join("")}<option value="${NIEUW}" ${soorten.length ? "" : "selected"}>Nieuwe premiesoort aanmaken</option></select></div>
+        <div class="veld" id="n_nieuw_veld" ${soorten.length ? "hidden" : ""}><label class="veld-lbl" for="n_nieuw">Naam nieuwe premiesoort</label><input id="n_nieuw" name="nieuw" class="invoer" placeholder="Bijvoorbeeld: Private lease premie"></div>
+        <div class="veld"><label class="veld-lbl" for="n_bedrag">Premie in euro, incl. btw</label><input id="n_bedrag" name="bedrag" class="invoer" type="number" min="0" step="50" required></div>
         <div class="veld"><label class="veld-lbl" for="n_code">Premiecode</label><input id="n_code" name="code" class="invoer" required></div>
         <div class="veld"><label class="veld-lbl" for="n_tot">Geldig tot en met</label><input id="n_tot" name="tot" class="invoer" type="date" required></div>
+        <div class="veld"><label class="veld-lbl" for="n_reg">Uiterste registratiedatum <span class="grijs">(optioneel)</span></label><input id="n_reg" name="reg" class="invoer" type="date"></div>
         <div class="veld"><span class="veld-lbl">&nbsp;</span><button class="knop donker">Toevoegen</button></div>
-      </div>` : `<p class="zij-leeg">Voeg eerst hieronder een premiesoort toe.</p>`}
+      </div>
     </form>
     <form class="paneel" id="f_soort">
       <h2>Premiesoorten</h2>
@@ -65,11 +79,18 @@ if (ik.rol !== "manager") {
   bak.innerHTML = `<div class="melding">De premielijst wordt bijgehouden door de manager.</div>`;
 } else {
   bak.addEventListener("change", e => {
+    if (e.target.id === "n_soort") {
+      const nieuw = e.target.value === NIEUW;
+      document.getElementById("n_nieuw_veld").hidden = !nieuw;
+      if (nieuw) document.getElementById("n_nieuw").focus();
+      return;
+    }
     const d = e.target.dataset; if (!d.id) return;
     const p = premies.find(x => x.id === d.id);
     p[d.veld] = d.veld === "bedrag" ? Number(e.target.value) : e.target.value;
     p.gewijzigd = { door: ik.naam, op: nu() };
-    opslaan(`${p.model}, ${p.soort}: ${{ bedrag: bedrag(p.bedrag), code: "premiecode " + p.code, tot: "geldig tot en met " + datumKort(p.tot) }[d.veld]}.`);
+    opslaan(`${p.model}, ${p.soort}: ${{ bedrag: bedrag(p.bedrag) + " incl. btw", code: "premiecode " + p.code, tot: "geldig tot en met " + datumKort(p.tot),
+      reg: p.reg ? "uiterste registratiedatum " + datumKort(p.reg) : "geen uiterste registratiedatum" }[d.veld]}.`);
   });
   bak.addEventListener("click", e => {
     const d = e.target.dataset;
@@ -94,10 +115,15 @@ if (ik.rol !== "manager") {
       opslaan(`Premiesoort ${s} toegevoegd. Je kunt hem nu bij een model zetten.`);
       return;
     }
+    if (v.soort === NIEUW) {
+      const s = soortToevoegen(v.nieuw);
+      if (!s) { document.getElementById("n_nieuw").focus(); return; }
+      v.soort = s;
+    }
     if (premies.some(p => p.model === v.model && p.soort === v.soort)) {
       toast(`De ${v.model} heeft al een ${v.soort.toLowerCase()}. Pas het bedrag in de tabel aan.`); return;
     }
-    premies.push({ id: nieuwId(), model: v.model, soort: v.soort, bedrag: Number(v.bedrag), code: v.code.trim(), tot: v.tot, gewijzigd: { door: ik.naam, op: nu() } });
+    premies.push({ id: nieuwId(), model: v.model, soort: v.soort, bedrag: Number(v.bedrag), code: v.code.trim(), tot: v.tot, reg: v.reg || "", gewijzigd: { door: ik.naam, op: nu() } });
     opslaan(`${v.soort} voor de ${v.model} toegevoegd.`);
   });
   teken();

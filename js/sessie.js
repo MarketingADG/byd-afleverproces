@@ -31,7 +31,7 @@ const SESSIE_SLEUTEL = "byd-afleverproces-sessie";
 function sessieToken() {
   try { return JSON.parse(localStorage.getItem(SESSIE_SLEUTEL))?.token || null; } catch (e) { return null; }
 }
-function sessieWeg() { try { localStorage.removeItem(SESSIE_SLEUTEL); sessionStorage.removeItem("byd-ik"); } catch (e) { } }
+function sessieWeg() { try { localStorage.removeItem(SESSIE_SLEUTEL); sessionStorage.removeItem("byd-ik"); sessionStorage.removeItem("byd-werkrol"); } catch (e) { } }
 
 function naarLogin(melding) {
   const hier = location.pathname.split("/").pop() + location.search + location.hash;
@@ -82,6 +82,16 @@ function laadPremiesoorten() { return LIJSTEN.premiesoorten.data; }
 function bewaarImports(lijst) { lijstBewaren("imports", lijst); }
 function bewaarPremies(lijst) { lijstBewaren("premies", lijst); }
 function bewaarPremiesoorten(lijst) { lijstBewaren("premiesoorten", lijst); }
+
+/* Afleversnelheid van de werkplaats (feedback Mark 2026-11-09): standaard 6 werkdagen
+   klaarmaken. De werkplaats kan dat tijdelijk ophogen of verlagen, tot en met een datum. */
+const STANDAARD_WP_DAGEN = 6;
+function laadInstellingen() { return (LIJSTEN.instellingen && LIJSTEN.instellingen.data[0]) || {}; }
+function bewaarInstellingen(inst) { lijstBewaren("instellingen", [inst]); }
+function wpDagen() {
+  const i = laadInstellingen();
+  return i.wpDagen && i.tot && dagenTot(i.tot) >= 0 ? i.wpDagen : STANDAARD_WP_DAGEN;
+}
 
 /* de premies die nu gelden voor een model, in de volgorde van de premiesoorten */
 function premiesVoor(model) {
@@ -253,6 +263,34 @@ function startFout(tekst) {
     `<div class="melding rood" style="margin:24px 0">${esc(tekst)} <a href="${esc(location.href)}">Opnieuw proberen</a></div>`);
 }
 
+/* Keuzevenster voor een manager: werken als manager of als verkoper. */
+function kiesWerkrol() {
+  return new Promise(klaar => {
+    document.documentElement.style.visibility = "";
+    document.body.classList.remove("laden");
+    const dlg = document.createElement("dialog");
+    dlg.className = "venster rolkeuze";
+    dlg.setAttribute("aria-labelledby", "rolkeuze_titel");
+    dlg.innerHTML = `<div class="venster-kop"><h2 id="rolkeuze_titel">Hoe werk je vandaag?</h2></div>
+      <p>Als verkoper zie je je eigen orders en taken, zoals elke verkoper. Wisselen kan later onderin het menu.</p>
+      <div class="rij-knoppen"><button type="button" class="knop donker" data-rol="manager">Als manager</button>
+      <button type="button" class="knop" data-rol="verkoper">Als verkoper</button></div>`;
+    dlg.addEventListener("cancel", e => e.preventDefault());
+    dlg.addEventListener("click", e => {
+      const b = e.target.closest("[data-rol]"); if (!b) return;
+      try { sessionStorage.setItem("byd-werkrol", b.dataset.rol); } catch (e2) { }
+      dlg.close(); dlg.remove(); klaar(b.dataset.rol);
+    });
+    document.body.append(dlg);
+    dlg.showModal();
+  });
+}
+
+function wisselWerkrol() {
+  try { sessionStorage.setItem("byd-werkrol", IK.rol === "manager" ? "verkoper" : "manager"); } catch (e) { }
+  location.href = "index.html";
+}
+
 async function opstarten() {
   const token = sessieToken();
   if (!token) return;
@@ -273,6 +311,14 @@ async function opstarten() {
   }
 
   IK = d.ik;
+  /* een manager kiest na het inloggen of hij als manager of als verkoper werkt (feedback Mark);
+     de keuze geldt voor deze sessie en is in het menu te wisselen */
+  if (IK.rol === "manager") {
+    let rol = null;
+    try { rol = sessionStorage.getItem("byd-werkrol"); } catch (e) { }
+    if (!rol) rol = await kiesWerkrol();
+    if (rol === "verkoper") IK = { ...IK, rol: "verkoper", manager: true };
+  }
   try { sessionStorage.setItem("byd-ik", JSON.stringify(IK)); } catch (e) { }
   PERSONEN.push(...d.personen);
   if (!PERSONEN.some(p => p.naam === IK.naam)) PERSONEN.push({ naam: IK.naam, rol: IK.rol });
@@ -280,7 +326,7 @@ async function opstarten() {
     ORDERS.push(r.data);
     BEWAARD.set(r.data.id, { json: JSON.stringify(r.data), versie: r.versie });
   }
-  for (const soort of ["imports", "premies", "premiesoorten"]) {
+  for (const soort of ["imports", "premies", "premiesoorten", "instellingen"]) {
     const l = d.lijsten[soort];
     LIJSTEN[soort] = l
       ? { data: l.data, json: JSON.stringify(l.data), versie: l.versie }

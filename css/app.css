@@ -431,6 +431,7 @@ details.opgelost .items{margin-top:10px}
 /* ---------- formulieren in een paneel (importlijst, premielijst) ---------- */
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;margin-top:12px}
 .form-grid .veld{display:flex;flex-direction:column;gap:5px}
+.form-grid .veld[hidden]{display:none}
 .form-grid .knoppen{grid-column:1/-1;display:flex;gap:8px}
 @media (max-width:760px){.form-grid{grid-template-columns:1fr 1fr}}
 #premies>.paneel+.paneel{margin-top:16px}
@@ -554,3 +555,27 @@ details.opgelost .items{margin-top:10px}
 .rebate-tabel{width:100%}
 .rebate-tabel .sub{font-size:var(--t-klein);color:var(--muted);margin-top:2px}
 .rebate-tabel td.mist{color:var(--st-rood);font-size:var(--t-klein);max-width:220px}
+
+/* ---------- feedback Mark 2026-11-09 ---------- */
+.melding.ordernr{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.melding.ordernr span{font-size:var(--t-klein)}
+.melding.ordernr b{font-size:1.35rem;letter-spacing:.02em}
+.rolkeuze p,.va-venster .venster-kop p{padding:0 20px 12px;line-height:1.5}
+.va-venster .venster-kop p{padding:4px 0 0;font-size:var(--t-klein)}
+.rolkeuze .rij-knoppen,.venster-voet.rij-knoppen{display:flex;gap:8px;flex-wrap:wrap}
+.rolkeuze .rij-knoppen{padding:4px 20px 20px}
+.va-venster{width:min(640px,calc(100vw - 32px))}
+.va-tabel{padding:0 20px;max-height:50vh;overflow:auto}
+.va-tabel table{border-collapse:collapse;width:100%;background:#FFFFF0;font-size:var(--t-klein)}
+.va-tabel td{border:1px solid #b5b5a8;padding:4px 8px;color:#000}
+.va-tabel td:last-child{font-weight:700;width:40%}
+.va-tabel tr.kop td{background:#EFEFD9;font-weight:700}
+.va-tabel tr.tussen td{height:6px;padding:0}
+.va-tabel p{padding:8px 0;font-size:var(--t-klein)}
+.va-venster>.melding{margin:12px 20px 0}
+.vervroeg{margin-top:6px}
+.vervroeg summary{cursor:pointer;font-size:var(--t-klein);font-weight:600}
+.vervroeg .wijziging{margin-top:8px}
+.tabel.voorraad{margin-top:16px}
+.snelheid .wijziging{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
+.snelheid .toelichting{margin-bottom:10px}

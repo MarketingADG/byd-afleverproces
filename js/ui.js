@@ -105,9 +105,11 @@ function zijmenuEl(ik, actief, tellers) {
     <nav class="zij-nav">${links.map(([h, t, ic, k, n]) => `<a href="${h}" class="${k === actief ? "actief" : ""}" ${k === actief ? 'aria-current="page"' : ""}>${icoon(ic)}<span>${t}</span>${n}</a>`).join("")}</nav>
     <div class="zij-onder">
       <div class="ik"><span class="avatar">${initialen(ik.naam)}</span><div><div class="nm">${esc(ik.naam)}</div><div class="rl">${ROLLEN[ik.rol]}</div></div></div>
+      ${ik.rol === "manager" || ik.manager ? `<button type="button" class="knop" id="werkrol">${ik.rol === "manager" ? "Werk als verkoper" : "Werk als manager"}</button>` : ""}
       <button type="button" class="knop" id="uitloggen">Uitloggen</button>
     </div>`;
   zij.querySelector("#uitloggen").addEventListener("click", uitloggen);
+  zij.querySelector("#werkrol")?.addEventListener("click", () => typeof wisselWerkrol === "function" && wisselWerkrol());
   return zij;
 }
 

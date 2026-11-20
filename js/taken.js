@@ -42,7 +42,8 @@ function alleTaken() {
     }
 
     /* de vijf delen, elk pas als hij aan de beurt is */
-    const datum = { 1: o.afleverdatum || o.levertijd, 2: o.afleverdatum || o.levertijd, 3: wpDeadline(o), 4: o.afleverdatum && plusDagen(o.afleverdatum, -1), 5: o.afleverdatum };
+    const kentAanvraag = o.vink.kent_aangevraagd?.op?.slice(0, 10);
+    const datum = { 1: kentAanvraag ? plusDagen(kentAanvraag, KENTEKEN_TAAK_NA + KENTEKEN_ROOD_NA) : o.afleverdatum || o.levertijd, 2: o.afleverdatum || o.levertijd, 3: wpDeadline(o), 4: o.afleverdatum && plusDagen(o.afleverdatum, -1), 5: o.afleverdatum };
     for (const d of verkoopDelen(o)) {
       if (!d.open || d.klaar || (d.nr === 1 && o.type === "import")) continue;
       const fase = d.nr <= 2 ? 3 : 5;
@@ -72,10 +73,26 @@ function alleTaken() {
       taak(`vraag-${m.id}`, "verkoper", { kleur: "oranje", deadline: naarIso(vandaag()),
         kop: "Reageren op de werkplaats", wat: `"${m.tekst}" — de werkplaats kan pas verder na jouw reactie`, anker: m.fase });
 
+    /* premie met uiterste registratiedatum en nog geen kenteken: oranje vanaf 10 dagen ervoor,
+       rood (te laat) als de datum voorbij is */
+    if (premieRegKnelt(o)) {
+      const reg = premieRegistratie(o), d = dagenTot(reg);
+      taak("premie-registratie", "verkoper", { kleur: d < 0 ? "rood" : "oranje", deadline: reg,
+        kop: "Kenteken op tijd voor de premie", wat: `${o.premie.soort} ${bedrag(o.premie.bedrag)}: kenteken uiterlijk ${datumKort(reg)} op naam${d < 0 ? ", datum is verstreken" : ""}`, anker: 3 });
+    }
+
     /* toevoeging past niet vóór de huidige afleverdatum: verkoper kiest een nieuwe */
     const tp = toevoegingProbleem(o);
     if (tp) taak("toevoeging-datum", "verkoper", { kleur: "rood", deadline: naarIso(vandaag()),
       kop: "Nieuwe afleverdatum kiezen", wat: `Door de toevoeging is de auto pas ${datumKort(tp.gereed)} klaar; vroegste aflevering ${datumKort(vroegsteNaGereed(tp.gereed))}`, anker: 3 });
+
+    /* eerder afleveren: de werkplaats beoordeelt, bij afwijzen kiest de verkoper een andere datum */
+    if (vervroegingOpen(o))
+      taak("vervroeging", "serviceadviseur", { kleur: "oranje", deadline: naarIso(vandaag()), link: "werkplaats.html",
+        kop: "Eerder afleveren beoordelen", wat: `${o.vervroeging.door} vraagt ${datumKort(o.vervroeging.datum)}; normaal vroegst ${datumKort(vroegsteAflevering(o))}` });
+    if (o.vervroeging?.status === "afgewezen" && !o.afleverdatum)
+      taak("vervroeging-af", "verkoper", { kleur: "oranje", deadline: naarIso(vandaag()), anker: o.vink.binnen ? 3 : 1,
+        kop: "Afleverdatum kiezen", wat: `Eerder afleveren afgewezen${o.vervroeging.reactie ? `: ${o.vervroeging.reactie}` : ""}. Vroegst ${datumKort(vroegsteAflevering(o))}` });
 
     /* uitgestelde aflevering: melding voor de administratie tot ze hem verwerkt heeft */
     if (o.uitgesteld && !o.uitgesteld.verwerkt)

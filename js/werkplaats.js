@@ -67,6 +67,9 @@ function tekenTaken() {
   const wachtend = lopendeOrders().flatMap(o => wachtOpVerkoper(o).map(m => ({ o, m })));
   const toevoegingen = lopendeOrders().flatMap(o => openToevoegingen(o).map(t => ({ o, t })));
   const platen = lopendeOrders().filter(o => wittePlaatNodig(o));
+  const vervroegingen = lopendeOrders().filter(o => vervroegingOpen(o));
+  const inst = laadInstellingen();
+  const magSnelheid = ["serviceadviseur", "manager"].includes(ik.rol);
 
   const uiterst = o => wpDeadline(o) ? `Klaar ${relatief(wpDeadline(o))}${om(o)}` : o.levertijd ? `Levertijd ${relatief(o.levertijd)}` : "";
 
@@ -111,7 +114,34 @@ function tekenTaken() {
           <button type="button" class="knop" data-witteplaat="${o.id}">${icoon("vink", 14)}Uitgevoerd</button></div>`).join("")}</div>
     </section>` : "";
 
-  document.getElementById("wp_meldingen").innerHTML = reactiesHtml + toevoegingenHtml + platenHtml;
+  /* eerder afleveren: de verkoop vraagt een datum vóór de vroegst mogelijke (feedback Mark) */
+  const vervroegHtml = vervroegingen.length ? `
+    <section class="taken-groep"><h2>Eerder afleveren beoordelen <span class="n">${vervroegingen.length}</span></h2>
+      <div class="rijen">${vervroegingen.map(o => { const v = o.vervroeging; return `
+        <div class="taak beoordeel-rij"><span class="stip st-oranje"></span>
+          <div><a class="wie" href="order.html?id=${o.id}#fase-3">${esc(klantNaam(o))}</a><div class="sub">${esc(autoNaam(o))} · normaal vroegst ${datumKort(vroegsteAflevering(o))}</div></div>
+          <div class="wat"><div class="kop">${datumKort(v.datum)}, ${blokTekst(v.blok)}</div><div class="sub">${esc(v.door)}: ${esc(v.reden)}</div></div>
+          <div class="actie beoordeel">
+            <button type="button" class="knop" data-vv-akkoord="${o.id}">${icoon("vink", 14)}Akkoord</button>
+            <label class="vh" for="vv_re_${o.id}">Reden afwijzen</label><input id="vv_re_${o.id}" class="invoer" placeholder="Reden bij afwijzen">
+            <button type="button" class="knop" data-vv-af="${o.id}">Afwijzen</button>
+          </div></div>`; }).join("")}</div>
+    </section>` : "";
+
+  /* afleversnelheid: standaard 6 werkdagen, tijdelijk aan te passen tot een datum */
+  const nuDagen = wpDagen();
+  const snelheidHtml = `
+    <section class="taken-groep snelheid"><h2>Afleversnelheid</h2>
+      <p class="toelichting">De verkoop plant nu vanaf binnenkomst plus <b>${nuDagen} werkdagen</b> werkplaats plus ${VERKOOP_DAGEN} werkdagen verkoop.${nuDagen !== STANDAARD_WP_DAGEN ? ` Tijdelijk aangepast door ${esc(inst.door || "de werkplaats")}, tot en met ${datumKort(inst.tot)}; daarna weer ${STANDAARD_WP_DAGEN}.` : ` Dat is de standaard.`}</p>
+      ${magSnelheid ? `<div class="wijziging">
+        <label class="veld-lbl" for="wp_dagen">Werkdagen werkplaats</label><input id="wp_dagen" class="invoer half" type="number" min="1" max="30" value="${nuDagen}">
+        <label class="veld-lbl" for="wp_tot">Geldt tot en met</label><input id="wp_tot" class="invoer half" type="date" min="${naarIso(vandaag())}" value="${nuDagen !== STANDAARD_WP_DAGEN ? inst.tot : ""}">
+        <button type="button" class="knop" id="wp_snelheid">Opslaan</button>
+        ${nuDagen !== STANDAARD_WP_DAGEN ? `<button type="button" class="knop link" id="wp_standaard">Terug naar ${STANDAARD_WP_DAGEN}</button>` : ""}
+      </div>` : ""}
+    </section>`;
+
+  document.getElementById("wp_meldingen").innerHTML = vervroegHtml + reactiesHtml + toevoegingenHtml + platenHtml + snelheidHtml;
 
   document.getElementById("wp_taken").innerHTML = `
     <section class="taken-groep"><h2>Onderdelen bestellen <span class="n">${bestellen.length}</span></h2>
@@ -264,6 +294,32 @@ opDocument("click", e => {
     const o = orders.find(x => x.id === b.dataset.witteplaat);
     zetVink(o, "witteplaat", true);
     toast(`Witte kentekenplaat voor ${o.auto.kenteken} staat op uitgevoerd.`, "groen");
+  }
+  if (b.dataset.vvAkkoord || b.dataset.vvAf) {
+    const o = orders.find(x => x.id === (b.dataset.vvAkkoord || b.dataset.vvAf));
+    const v = o.vervroeging;
+    if (b.dataset.vvAkkoord) {
+      Object.assign(v, { status: "akkoord", beoordeeldDoor: ik.naam, beoordeeldOp: nu() });
+      o.afleverdatum = v.datum; o.aflevertijd = v.blok;
+      o.log.push({ op: nu(), door: ik.naam, wat: `Eerder afleveren goedgekeurd: ${datumKort(v.datum)}, ${blokTekst(v.blok)}` });
+      toast(`Akkoord. De afleverdatum van ${klantNaam(o)} staat nu op ${datumKort(v.datum)}.`, "groen");
+    } else {
+      const reactie = document.getElementById(`vv_re_${o.id}`).value.trim();
+      if (!reactie) { toast("Schrijf erbij waarom het niet kan, dan weet de verkoop waar hij aan toe is."); return; }
+      Object.assign(v, { status: "afgewezen", reactie, beoordeeldDoor: ik.naam, beoordeeldOp: nu() });
+      o.log.push({ op: nu(), door: ik.naam, wat: `Eerder afleveren afgewezen (${datumKort(v.datum)}): ${reactie}` });
+      toast(`Afgewezen. ${o.verkoper} kiest een datum vanaf ${datumKort(vroegsteAflevering(o))}.`);
+    }
+    bewaar(orders);
+    tekenWeek(); tekenTaken();
+  }
+  if (b.id === "wp_snelheid" || b.id === "wp_standaard") {
+    const dagen = Number(document.getElementById("wp_dagen").value), tot = document.getElementById("wp_tot").value;
+    if (b.id === "wp_snelheid" && dagen !== STANDAARD_WP_DAGEN && (!tot || !(dagen >= 1 && dagen <= 30))) { toast("Vul het aantal werkdagen (1 tot 30) en de einddatum in."); return; }
+    const standaard = b.id === "wp_standaard" || dagen === STANDAARD_WP_DAGEN;
+    bewaarInstellingen(standaard ? { door: ik.naam, op: nu() } : { wpDagen: dagen, tot, door: ik.naam, op: nu() });
+    toast(standaard ? `Afleversnelheid terug naar ${STANDAARD_WP_DAGEN} werkdagen.` : `Tot en met ${datumKort(tot)} plant de verkoop met ${dagen} werkdagen werkplaats.`, "groen");
+    tekenTaken();
   }
   if (b.dataset.opgelostVraag) {
     const [id, mid] = b.dataset.opgelostVraag.split("|");
