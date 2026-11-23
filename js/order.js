@@ -233,8 +233,8 @@ function puntHtml(p, mag) {
       /* de gekozen premie wordt met bedrag en code in de order vastgelegd, zodat een latere
          wijziging in de premielijst een verkochte auto niet meer raakt */
       const keus = o.premie;
-      const lijst = o.auto.model ? premiesVoor(o.auto.model) : [];
-      const tekst = x => `${x.soort}, ${bedrag(x.bedrag)} incl. btw`;
+      const lijst = o.auto.model ? premiesVoor(o.auto.model, o.auto.uitvoering) : [];
+      const tekst = x => premieLabel(x);
       if (!o.auto.model) { meta = "Kies eerst een model."; labelFor = false; break; }
       if (keus?.id === "geen") meta = "De klant krijgt geen premie uit de premielijst.";
       else if (keus) meta = `Premiecode ${keus.code}${keus.tot ? `, geldig tot en met ${datumKort(keus.tot)}` : ""}.${keus.reg ? ` Kenteken uiterlijk ${datumKort(keus.reg)} op naam, anders vervalt de premie.` : ""}`;
@@ -738,10 +738,11 @@ hoofd.addEventListener("change", e => {
   } else if (d.premie) {
     const pr = laadPremies().find(x => x.id === t.value);
     wijzig(() => {
-      if (pr) o.premie = { id: pr.id, model: pr.model, soort: pr.soort, bedrag: pr.bedrag, code: pr.code, tot: pr.tot, reg: pr.reg || "" };
+      /* bij een percentage vult de verkoper daarna zelf het bedrag incl. btw in */
+      if (pr) o.premie = { id: pr.id, model: pr.model, uitvoering: pr.uitvoering || "", soort: pr.soort, bedrag: typeof pr.pct === "number" ? "" : pr.bedrag, ...(typeof pr.pct === "number" ? { pct: pr.pct } : {}), code: pr.code, tot: pr.tot, reg: pr.reg || "" };
       else if (t.value === "geen") o.premie = { id: "geen", model: o.auto.model };
       else delete o.premie;
-    }, pr ? `Premie gekozen: ${pr.soort}, ${bedrag(pr.bedrag)} incl. btw, premiecode ${pr.code}${pr.reg ? `, registreren uiterlijk ${datumKort(pr.reg)}` : ""}` : t.value === "geen" ? "Premie: geen premie" : "Premie leeggemaakt");
+    }, pr ? `Premie gekozen: ${premieLabel(pr)}, premiecode ${pr.code}${pr.reg ? `, registreren uiterlijk ${datumKort(pr.reg)}` : ""}` : t.value === "geen" ? "Premie: geen premie" : "Premie leeggemaakt");
   } else if (d.importkeuze) {
     const imp = laadImports().find(i => i.chassis === t.value);
     wijzig(() => {

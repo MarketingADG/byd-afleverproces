@@ -78,7 +78,7 @@ function alleTaken() {
     if (premieRegKnelt(o)) {
       const reg = premieRegistratie(o), d = dagenTot(reg);
       taak("premie-registratie", "verkoper", { kleur: d < 0 ? "rood" : "oranje", deadline: reg,
-        kop: "Kenteken op tijd voor de premie", wat: `${o.premie.soort} ${bedrag(o.premie.bedrag)}: kenteken uiterlijk ${datumKort(reg)} op naam${d < 0 ? ", datum is verstreken" : ""}`, anker: 3 });
+        kop: "Kenteken op tijd voor de premie", wat: `${o.premie.soort} ${typeof o.premie.bedrag === "number" ? bedrag(o.premie.bedrag) : premieWaarde(o.premie)}: kenteken uiterlijk ${datumKort(reg)} op naam${d < 0 ? ", datum is verstreken" : ""}`, anker: 3 });
     }
 
     /* toevoeging past niet vóór de huidige afleverdatum: verkoper kiest een nieuwe */

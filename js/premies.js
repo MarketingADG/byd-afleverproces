@@ -28,19 +28,21 @@ function soortToevoegen(naam) {
 
 function teken() {
   const rijen = [...premies].sort((a, b) =>
-    MODELLEN.indexOf(a.model) - MODELLEN.indexOf(b.model) || soorten.indexOf(a.soort) - soorten.indexOf(b.soort));
+    MODELLEN.indexOf(a.model) - MODELLEN.indexOf(b.model) || soorten.indexOf(a.soort) - soorten.indexOf(b.soort) || (a.uitvoering || "").localeCompare(b.uitvoering || ""));
   bak.innerHTML = `
     <section class="paneel">
       <h2>Premies per model</h2>
-      <p class="toelichting">Een model kan meerdere premiesoorten hebben; de verkoper kiest er bij de order één uit. Bedragen zijn inclusief btw. Wijzig een bedrag, code of datum en het staat meteen goed in nieuwe orders.</p>
-      ${rijen.length ? `<table class="tabel premietabel"><thead><tr><th>Model</th><th>Premiesoort</th><th>Premie incl. btw</th><th>Premiecode</th><th>Geldig tot en met</th><th>Uiterste registratiedatum</th><th>Laatst gewijzigd</th><th><span class="vh">Verwijderen</span></th></tr></thead><tbody>
+      <p class="toelichting">Een model kan meerdere premiesoorten hebben; de verkoper kiest er bij de order één uit. Een premie is een vast bedrag incl. btw of een percentage van de netto catalogusprijs; bij een percentage vult de verkoper in fase 1 het bedrag zelf in. Laat de uitvoering leeg als de premie voor alle uitvoeringen geldt.</p>
+      ${rijen.length ? `<table class="tabel premietabel"><thead><tr><th>Model</th><th>Premiesoort</th><th>Uitvoering</th><th>Premie</th><th>Premiecode</th><th>Geldig tot en met</th><th>Uiterste registratiedatum</th><th>Laatst gewijzigd</th><th><span class="vh">Verwijderen</span></th></tr></thead><tbody>
         ${rijen.map((p, i) => {
           const eerste = i === 0 || rijen[i - 1].model !== p.model;
-          const naam = esc(`${p.model}, ${p.soort}`);
+          const naam = esc([p.model, p.soort, p.uitvoering].filter(Boolean).join(", "));
+          const pct = typeof p.pct === "number";
           return `<tr class="${eerste ? "nieuw-model" : ""} ${p.tot && dagenTot(p.tot) < 0 ? "te-laat" : ""}">
           <td>${eerste ? `<b>${esc(p.model)}</b>` : `<span class="vh">${esc(p.model)}</span>`}</td>
           <td>${esc(p.soort)}</td>
-          <td><label class="vh" for="b_${p.id}">Premie incl. btw ${naam}</label><input id="b_${p.id}" class="invoer" type="number" min="0" step="50" data-id="${p.id}" data-veld="bedrag" value="${p.bedrag}"></td>
+          <td><label class="vh" for="u_${p.id}">Uitvoering ${naam}</label><input id="u_${p.id}" class="invoer" data-id="${p.id}" data-veld="uitvoering" value="${esc(p.uitvoering || "")}" placeholder="Alle"></td>
+          <td class="premie-waarde"><label class="vh" for="b_${p.id}">Premie ${naam}</label><input id="b_${p.id}" class="invoer" type="number" min="0" step="${pct ? "0.5" : "50"}" data-id="${p.id}" data-veld="${pct ? "pct" : "bedrag"}" value="${pct ? p.pct : p.bedrag}"><span>${pct ? "% catalogusprijs" : "€ incl. btw"}</span></td>
           <td><label class="vh" for="c_${p.id}">Premiecode ${naam}</label><input id="c_${p.id}" class="invoer" data-id="${p.id}" data-veld="code" value="${esc(p.code || "")}"></td>
           <td><label class="vh" for="t_${p.id}">Geldig tot ${naam}</label><input id="t_${p.id}" class="invoer" type="date" data-id="${p.id}" data-veld="tot" value="${p.tot || ""}"></td>
           <td><label class="vh" for="r_${p.id}">Uiterste registratiedatum ${naam}</label><input id="r_${p.id}" class="invoer" type="date" data-id="${p.id}" data-veld="reg" value="${p.reg || ""}"></td>
@@ -55,7 +57,9 @@ function teken() {
         <div class="veld"><label class="veld-lbl" for="n_model">Model</label><select id="n_model" name="model" class="invoer" required>${MODELLEN.map(m => `<option>${esc(m)}</option>`).join("")}</select></div>
         <div class="veld"><label class="veld-lbl" for="n_soort">Premiesoort</label><select id="n_soort" name="soort" class="invoer" required>${soorten.map(s => `<option>${esc(s)}</option>`).join("")}<option value="${NIEUW}" ${soorten.length ? "" : "selected"}>Nieuwe premiesoort aanmaken</option></select></div>
         <div class="veld" id="n_nieuw_veld" ${soorten.length ? "hidden" : ""}><label class="veld-lbl" for="n_nieuw">Naam nieuwe premiesoort</label><input id="n_nieuw" name="nieuw" class="invoer" placeholder="Bijvoorbeeld: Private lease premie"></div>
-        <div class="veld"><label class="veld-lbl" for="n_bedrag">Premie in euro, incl. btw</label><input id="n_bedrag" name="bedrag" class="invoer" type="number" min="0" step="50" required></div>
+        <div class="veld"><label class="veld-lbl" for="n_uitvoering">Uitvoering <span class="grijs">(leeg is alle)</span></label><input id="n_uitvoering" name="uitvoering" class="invoer" placeholder="Bijvoorbeeld: Boost"></div>
+        <div class="veld"><label class="veld-lbl" for="n_bedrag">Premie</label><input id="n_bedrag" name="bedrag" class="invoer" type="number" min="0" step="0.5" required></div>
+        <div class="veld"><label class="veld-lbl" for="n_eenheid">In</label><select id="n_eenheid" name="eenheid" class="invoer"><option value="euro">Euro incl. btw</option><option value="pct">Procent van de catalogusprijs</option></select></div>
         <div class="veld"><label class="veld-lbl" for="n_code">Premiecode</label><input id="n_code" name="code" class="invoer" required></div>
         <div class="veld"><label class="veld-lbl" for="n_tot">Geldig tot en met</label><input id="n_tot" name="tot" class="invoer" type="date" required></div>
         <div class="veld"><label class="veld-lbl" for="n_reg">Uiterste registratiedatum <span class="grijs">(optioneel)</span></label><input id="n_reg" name="reg" class="invoer" type="date"></div>
@@ -87,16 +91,17 @@ if (ik.rol !== "manager") {
     }
     const d = e.target.dataset; if (!d.id) return;
     const p = premies.find(x => x.id === d.id);
-    p[d.veld] = d.veld === "bedrag" ? Number(e.target.value) : e.target.value;
+    p[d.veld] = d.veld === "bedrag" || d.veld === "pct" ? Number(e.target.value) : e.target.value.trim();
     p.gewijzigd = { door: ik.naam, op: nu() };
-    opslaan(`${p.model}, ${p.soort}: ${{ bedrag: bedrag(p.bedrag) + " incl. btw", code: "premiecode " + p.code, tot: "geldig tot en met " + datumKort(p.tot),
+    opslaan(`${[p.model, p.soort, p.uitvoering].filter(Boolean).join(", ")}: ${{ bedrag: premieWaarde(p), pct: premieWaarde(p), uitvoering: p.uitvoering ? "uitvoering " + p.uitvoering : "alle uitvoeringen",
+      code: "premiecode " + p.code, tot: "geldig tot en met " + datumKort(p.tot),
       reg: p.reg ? "uiterste registratiedatum " + datumKort(p.reg) : "geen uiterste registratiedatum" }[d.veld]}.`);
   });
   bak.addEventListener("click", e => {
     const d = e.target.dataset;
     if (d.weg) {
       const p = premies.find(x => x.id === d.weg);
-      if (!confirm(`${p.soort} voor de ${p.model} verwijderen?`)) return;
+      if (!confirm(`${p.soort} voor de ${[p.model, p.uitvoering].filter(Boolean).join(" ")} verwijderen?`)) return;
       premies = premies.filter(x => x !== p);
       opslaan(`${p.soort} voor de ${p.model} verwijderd.`);
     }
@@ -120,11 +125,13 @@ if (ik.rol !== "manager") {
       if (!s) { document.getElementById("n_nieuw").focus(); return; }
       v.soort = s;
     }
-    if (premies.some(p => p.model === v.model && p.soort === v.soort)) {
-      toast(`De ${v.model} heeft al een ${v.soort.toLowerCase()}. Pas het bedrag in de tabel aan.`); return;
+    const uitv = (v.uitvoering || "").trim();
+    if (premies.some(p => p.model === v.model && p.soort === v.soort && (p.uitvoering || "").toLowerCase() === uitv.toLowerCase())) {
+      toast(`De ${[v.model, uitv].filter(Boolean).join(" ")} heeft al een ${v.soort.toLowerCase()}. Pas hem in de tabel aan.`); return;
     }
-    premies.push({ id: nieuwId(), model: v.model, soort: v.soort, bedrag: Number(v.bedrag), code: v.code.trim(), tot: v.tot, reg: v.reg || "", gewijzigd: { door: ik.naam, op: nu() } });
-    opslaan(`${v.soort} voor de ${v.model} toegevoegd.`);
+    const waarde = v.eenheid === "pct" ? { pct: Number(v.bedrag) } : { bedrag: Number(v.bedrag) };
+    premies.push({ id: nieuwId(), model: v.model, uitvoering: uitv, soort: v.soort, ...waarde, code: v.code.trim(), tot: v.tot, reg: v.reg || "", gewijzigd: { door: ik.naam, op: nu() } });
+    opslaan(`${v.soort} voor de ${[v.model, uitv].filter(Boolean).join(" ")} toegevoegd.`);
   });
   teken();
 }

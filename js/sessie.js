@@ -93,12 +93,21 @@ function wpDagen() {
   return i.wpDagen && i.tot && dagenTot(i.tot) >= 0 ? i.wpDagen : STANDAARD_WP_DAGEN;
 }
 
-/* de premies die nu gelden voor een model, in de volgorde van de premiesoorten */
-function premiesVoor(model) {
+/* de premies die nu gelden voor een model, in de volgorde van de premiesoorten. Een premie
+   kan voor één uitvoering gelden (leasebrieven per uitvoering, 2026-11-23); is de uitvoering
+   van de order bekend, dan alleen die en de premies zonder uitvoering. */
+function premiesVoor(model, uitvoering = "") {
   const soorten = laadPremiesoorten();
-  return laadPremies().filter(p => p.model === model && (!p.tot || dagenTot(p.tot) >= 0))
-    .sort((a, b) => soorten.indexOf(a.soort) - soorten.indexOf(b.soort));
+  const u = String(uitvoering || "").trim().toLowerCase();
+  return laadPremies().filter(p => p.model === model && (!p.tot || dagenTot(p.tot) >= 0) &&
+      (!u || !p.uitvoering || p.uitvoering.toLowerCase().split("/").some(x => u.includes(x.trim()))))
+    .sort((a, b) => soorten.indexOf(a.soort) - soorten.indexOf(b.soort) || (a.uitvoering || "").localeCompare(b.uitvoering || ""));
 }
+/* een premie is een vast bedrag incl. btw of een percentage van de netto catalogusprijs */
+function premieWaarde(p) {
+  return typeof p.pct === "number" ? `${p.pct.toLocaleString("nl-NL")}% van de catalogusprijs` : `${bedrag(p.bedrag)} incl. btw`;
+}
+function premieLabel(p) { return [p.soort, p.uitvoering, premieWaarde(p)].filter(Boolean).join(", "); }
 
 /* ---------- opslaan ----------
    bewaar() kijkt per order wat er sinds het laden is veranderd en stuurt alleen dat naar

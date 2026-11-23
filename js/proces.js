@@ -179,6 +179,8 @@ function puntenVoor(o, nr) {
 
     if (nieuw) {
       add("Premie en deal", { key: "premie", label: "Premie", soort: "premiekeuze", pad: "premie.id", verplicht: false });
+      if (typeof o.premie?.pct === "number") add("Premie en deal", { key: "premie_bedrag", label: "Premiebedrag incl. btw", soort: "getal", pad: "premie.bedrag", eenheid: "€",
+        hint: `${o.premie.soort}: ${o.premie.pct.toLocaleString("nl-NL")}% van de netto catalogusprijs excl. btw en bpm, inclusief fabrieksopties. Reken het om naar incl. btw (× 1,21); dit bedrag komt in het afleverformulier` });
       add("Premie en deal", { key: "kanaal", label: "Verkoopkanaal", soort: "keuze", pad: "kanaal", opties: KANALEN, verplicht: false, hint: "Nodig voor het premierapport aan BYD" });
       add("Premie en deal", { key: "verkoopprijs", label: "Verkoopprijs inclusief btw", soort: "getal", pad: "verkoopprijs", eenheid: "€", verplicht: false });
       /* premie en deal horen alleen bij een nieuwe auto (feedback vestiging 2026-11-04) */

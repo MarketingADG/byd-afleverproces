@@ -21,7 +21,8 @@ function rij(imp, i) {
   const klaar = stand === IMPORT_STAPPEN.length;
   const volgende = IMPORT_STAPPEN[stand];
   return `<div class="imp-rij in-beeld" style="--i:${i}" id="${esc(imp.chassis)}">
-    <div><div class="wie">${esc(imp.merk)} ${esc(imp.model)}</div><div class="sub">${esc(imp.uitvoering)} · ${esc(imp.kleur_ext)}, interieur ${esc(imp.kleur_int.toLowerCase())} · ${imp.bouwjaar} · ${Number(imp.km).toLocaleString("nl-NL")} km</div></div>
+    <div><div class="wie">${esc(imp.merk)} ${esc(imp.model)}</div><div class="sub">${esc([imp.uitvoering, [imp.kleur_ext, imp.kleur_int && "interieur " + imp.kleur_int.toLowerCase()].filter(Boolean).join(", "), imp.bouwjaar,
+      typeof imp.km === "number" ? `${imp.km.toLocaleString("nl-NL")} km` : ""].filter(Boolean).join(" · "))}</div></div>
     <div><div class="mono">${esc(imp.chassis)}</div><div class="sub">Meldcode ${esc(meldcode(imp))}${imp.kenteken ? " · " + esc(imp.kenteken) : ""}</div></div>
     <div>${o ? `<a class="wie" href="order.html?id=${o.id}">Verkocht aan ${esc(klantNaam(o))}</a><div class="sub">${esc(o.verkoper)}</div>` : `<div class="wie">Onverkocht</div><div class="sub">Toegevoegd door ${esc(imp.toegevoegd.door)}</div>`}</div>
     <div class="imp-voortgang">${delenBalk(importDelen(imp), "Import")}

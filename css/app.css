@@ -579,3 +579,5 @@ details.opgelost .items{margin-top:10px}
 .tabel.voorraad{margin-top:16px}
 .snelheid .wijziging{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
 .snelheid .toelichting{margin-bottom:10px}
+.premietabel .premie-waarde{white-space:nowrap}
+.premietabel .premie-waarde span{margin-left:6px;color:var(--muted);font-size:.85em}
