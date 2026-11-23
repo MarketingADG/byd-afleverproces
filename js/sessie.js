@@ -171,8 +171,8 @@ function agendaVelden(json) {
   try {
     const o = JSON.parse(json);
     return JSON.stringify([o.concept, o.gewist, o.afleverdatum, o.aflevertijd,
-      o.klant && o.klant.naam, o.auto && o.auto.model, o.auto && o.auto.chassis,
-      o.verkoper, o.mastercare, o.ordernummer]);
+      o.klant && o.klant.naam, o.klant && o.klant.aanhef, o.auto && o.auto.model, o.auto && o.auto.chassis,
+      o.auto && o.auto.kenteken, o.verkoper, o.mastercare, o.ordernummer]);
   } catch (e) { return ""; }
 }
 
@@ -236,7 +236,10 @@ function orderVanKoppeling(rij) {
   };
   if (o.heeftInruil) {
     const [a, b] = p.inruil;
-    o.inruil = { kenteken: a.kenteken || "", boekwaarde: a.waarde || "", opm: b ? `Tweede inruilauto: ${[b.model, b.kenteken].filter(Boolean).join(", ")}` : "" };
+    /* boekwaarde bewust leeg: die is vaak lager dan de inruilprijs uit de offerte, bijvoorbeeld door
+       premies (feedback Mark 2026-11-23). De inruilprijs staat als hint bij het veld. */
+    const waarde = Number(a.waarde);
+    o.inruil = { kenteken: a.kenteken || "", boekwaarde: "", offerteWaarde: a.waarde !== "" && a.waarde != null && isFinite(waarde) ? waarde : null, opm: b ? `Tweede inruilauto: ${[b.model, b.kenteken].filter(Boolean).join(", ")}` : "" };
   }
   return o;
 }

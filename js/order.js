@@ -155,11 +155,18 @@ function puntHtml(p, mag) {
         ctl = `<button type="button" class="knop donker ${geblokt ? "uit" : ""}" id="${id}" data-actie="${p.key}" ${dl} ${geblokt ? 'aria-disabled="true"' : ""}>${esc(p.knop)}</button>`;
       }
       break;
-    case "upload":
-      if (klaar) meta = wieWanneer;
-      if (mag) ctl = `<label class="knop" for="${id}">${klaar ? "Vervangen" : "Uploaden"}</label><input type="file" id="${id}" class="vh" data-upload="${p.key}" ${dl}>`;
+    case "upload": {
+      /* het bestand zelf staat in de database (aflever.bestanden); in de order alleen wie, wanneer en de naam.
+         Een oud vinkje zonder bestand ("staat in CarIt") blijft gelden */
+      if (klaar) meta = v.bestand ? wieWanneer : `${wieWanneer} · afgevinkt als: staat in CarIt`;
+      const open = v?.bestand ? `<button type="button" class="knop" data-open-bestand="${p.key}">Openen en printen</button>` : "";
+      const up = mag && !p.alleenLezen && !o.gewist
+        ? `<label class="knop ${klaar ? "" : "donker"}" for="${id}">${v?.bestand ? "Vervangen" : "Uploaden"}</label><input type="file" id="${id}" class="vh" accept="application/pdf,image/jpeg,image/png" data-upload="${p.key}" ${dl}>`
+        : "";
+      if (open || up) ctl = `<div class="rij-knoppen">${open}${up}</div>`;
       labelFor = false;
       break;
+    }
     case "tekstvak": {
       breed = true;
       const w = lees(o, p.pad);
@@ -317,6 +324,9 @@ function actieGeblokt(key) {
   if (key === "binnen" && !(o.afleverdatum && o.aflevertijd)) return "Plan eerst de afleverdatum en het tijdsblok. Die leg je vast bij binnenkomst.";
   if (key === "factuur" && !(o.auto.kenteken && o.afleverdatum && o.aflevertijd)) return "Kan pas als kenteken, afleverdatum en tijdsblok er zijn.";
   if (key === "factuur" && !o.ordernummer) return "Vul eerst het CarIt-ordernummer in bij fase 1. Zonder dat nummer kan VA het afleverformulier niet verwerken.";
+  if (key === "factuur" && typeof o.auto.km !== "number") return "Vul eerst de actuele kilometerstand in. Die staat in het afleverformulier voor VA.";
+  if (key === "factuur" && factuurNaar(o) !== "verkoper" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(factuurMail(o).trim()))
+    return factuurNaar(o) === "ander" ? "Vul het e-mailadres voor de factuur in." : "De klant heeft geen geldig e-mailadres. Vul het in bij fase 1 of kies een ander e-mailadres voor de factuur.";
   if (key === "afgeleverd" && faseStatus(o, 3) !== "groen") return "Kan pas als fase 3 rond is: kenteken, afspraak en factuur.";
   /* werkplaatsklaar is de afsluiting van fase 4: eerst inplannen, laden en tanken */
   if (key === "wp_klaar") {
@@ -630,6 +640,66 @@ function factuurVenster() {
   dlg.showModal();
 }
 
+/* ---------- getekend contract: uploaden en openen ----------
+   Het bestand gaat via aflever_bestand_opslaan naar de database (alleen eigen vestiging) en
+   verdwijnt met de klantgegevens, 30 dagen na de aflevering. In de order staat alleen wie,
+   wanneer en de bestandsnaam. */
+const BESTAND_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+const BESTAND_MAX = 8 * 1024 * 1024;
+let uploadBezig = false;
+
+function alsBase64(bestand) {
+  return new Promise((ok, fout) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result).split(",")[1] || "");
+    r.onerror = () => fout(new Error("Het bestand kon niet worden gelezen"));
+    r.readAsDataURL(bestand);
+  });
+}
+
+async function uploadBestand(key, bestand) {
+  if (uploadBezig) return;
+  if (!BESTAND_TYPES.includes(bestand.type)) { toast("Upload een pdf, jpg of png. Een foto van de iPhone (heic) kun je eerst als pdf of jpg bewaren.", "rood"); return; }
+  if (bestand.size > BESTAND_MAX) { toast(`Het bestand is ${(bestand.size / 1048576).toFixed(1).replace(".", ",")} MB. Maximaal 8 MB; scan het contract als pdf.`, "rood"); return; }
+  uploadBezig = true;
+  toast("Contract uploaden...");
+  try {
+    bewaar(orders);
+    await wachtOpOpslaan();
+    await rpc("aflever_bestand_opslaan", {
+      p_token: sessieToken(), p_dossier: o.id, p_soort: key, p_naam: bestand.name, p_mime: bestand.type, p_inhoud: await alsBase64(bestand)
+    });
+    const vervangen = !!o.vink[key]?.bestand;
+    wijzig(() => { o.vink[key] = { door: ik.naam, op: nu(), bestand: bestand.name }; }, `Getekend contract ${vervangen ? "vervangen" : "geüpload"}: ${bestand.name}`);
+    toast("Contract staat in de order.", "groen");
+  } catch (e) {
+    toast(`Uploaden mislukt: ${/fetch|network/i.test(e.message) ? "geen verbinding" : e.message}. Probeer het opnieuw.`, "rood");
+  } finally {
+    uploadBezig = false;
+  }
+}
+
+async function openBestand(key, knop) {
+  /* het venster meteen openen, anders houdt de popupblokker het tegen na het wachten op de database */
+  const venster = window.open("", "_blank");
+  const tekst = knop.textContent;
+  knop.disabled = true; knop.textContent = "Openen...";
+  try {
+    const rij = (await rpc("aflever_bestand_ophalen", { p_token: sessieToken(), p_dossier: o.id, p_soort: key }))?.[0];
+    if (!rij) throw new Error("Het contract staat niet (meer) in de module");
+    const bytes = Uint8Array.from(atob(rij.inhoud.replace(/\s/g, "")), c => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: rij.mime }));
+    if (venster) venster.location.href = url;
+    else { const a = document.createElement("a"); a.href = url; a.download = rij.naam; a.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    venster?.close();
+    toast(`Openen mislukt: ${/fetch|network/i.test(e.message) ? "geen verbinding" : e.message}.`, "rood");
+  } finally {
+    knop.disabled = false; knop.textContent = tekst;
+  }
+}
+
 /* ---------- invoer ---------- */
 
 const ACTIE_MELDING = {
@@ -679,8 +749,8 @@ hoofd.addEventListener("change", e => {
       if (imp) o.auto.model = `${imp.merk === "BYD" ? "" : imp.merk + " "}${imp.model}`;
     }, imp ? `Gekoppeld aan importauto ${imp.merk} ${imp.model} (${imp.chassis})` : "Importauto losgekoppeld");
   } else if (d.upload) {
-    const naam = t.files[0]?.name; if (!naam) return;
-    wijzig(() => { o.vink[d.upload] = { door: ik.naam, op: nu(), bestand: naam }; }, `${naam} geüpload`);
+    const bestand = t.files[0]; t.value = "";
+    if (bestand) uploadBestand(d.upload, bestand);
   } else if (d.acc) {
     const a = o.accessoires[d.acc];
     wijzig(() => { a[d.veld] = t.type === "checkbox" ? t.checked : t.value; }, `Onderdeel ${a.naam}: ${d.veld} bijgewerkt`);
@@ -700,6 +770,7 @@ hoofd.addEventListener("click", e => {
     history.replaceState(null, "", `#fase-${d.naar}`);
     teken(); return;
   }
+  if (d.openBestand) { openBestand(d.openBestand, t); return; }
   if (d.janee) { wijzig(() => zet(o, d.janee, d.w === "1"), `${d.label}: ${d.w === "1" ? "ja" : "nee"}`); return; }
   if (d.vink) {
     if (actieGeblokt(d.vink)) { toast(actieGeblokt(d.vink)); return; }

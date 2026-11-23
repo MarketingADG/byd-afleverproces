@@ -41,6 +41,11 @@ const KANALEN = {
   verhuur: "Verhuur",
   demo: "Demo"
 };
+/* Waar de factuur heen gaat (feedback Mark 2026-11-23). Bij zakelijke lease altijd naar de
+   verkoper, niet naar de klant. Dezelfde regel staat in de edge function aflever-mail. */
+const FACTUUR_NAAR = { klant: "E-mailadres van de klant", ander: "Ander e-mailadres", verkoper: "E-mailadres van de verkoper (zakelijke lease)" };
+function zakelijkeLease(o) { return o.kanaal === "zakelijk-lease"; }
+function factuurNaar(o) { return zakelijkeLease(o) ? "verkoper" : (o.factuur_naar || "klant"); }
 const KANAAL_BYD = {
   "particulier-koop": "Private Purchase", "particulier-lease": "Private Lease", "zakelijk-koop": "Business Purchase",
   "zakelijk-lease": "Business Lease", verhuur: "RaC", demo: "Retail Demo"
@@ -119,7 +124,9 @@ function puntenVoor(o, nr) {
   };
 
   if (nr === 1) {
-    add("Order", { key: "contract", label: "Ondertekend contract staat in CarIt", soort: "vink" });
+    /* het getekende contract staat in de module, niet in CarIt (feedback Mark 2026-11-23); het gaat
+       weg met de rest van de klantgegevens, 30 dagen na de aflevering */
+    add("Order", { key: "contract", label: "Getekend contract", soort: "upload", hint: "Upload het getekende contract als pdf, jpg of png (maximaal 8 MB). Bij de aflevering open en print je het hier" });
     add("Order", { key: "orderbev", label: "Orderbevestiging staat in CarIt", soort: "vink" });
     add("Order", { key: "ordernummer", label: "Ordernummer CarIt", soort: "tekst", pad: "ordernummer", hint: "Neem over uit CarIt zodra de order daar staat. Komt bewust niet uit de offertemodule" });
     add("Order", { key: "type", label: "Soort", soort: "keuze", pad: "type", opties: TYPES });
@@ -185,7 +192,9 @@ function puntenVoor(o, nr) {
     add("Inruil", { key: "inruil", label: "Inruil", soort: "janee", pad: "heeftInruil" });
     if (o.heeftInruil) {
       add("Inruil", { key: "i_kenteken", label: "Kenteken inruil", soort: "tekst", pad: "inruil.kenteken" });
-      add("Inruil", { key: "i_boekwaarde", label: "Boekwaarde", soort: "getal", pad: "inruil.boekwaarde", eenheid: "€" });
+      /* bewust leeg bij binnenkomst: de boekwaarde is vaak lager dan de inruilprijs uit de offerte (feedback Mark 2026-11-23) */
+      const offerteWaarde = typeof o.inruil?.offerteWaarde === "number" ? `Inruilprijs in de offerte: € ${o.inruil.offerteWaarde.toLocaleString("nl-NL")}. ` : "";
+      add("Inruil", { key: "i_boekwaarde", label: "Boekwaarde", soort: "getal", pad: "inruil.boekwaarde", eenheid: "€", hint: `${offerteWaarde}De boekwaarde is vaak lager dan de inruilprijs, bijvoorbeeld door premies. Vul de echte boekwaarde in` });
       add("Inruil", { key: "i_opm", label: "Opmerkingen inruil", soort: "tekst", pad: "inruil.opm", verplicht: false, hint: "Bijvoorbeeld losse inkoop" });
     }
     add("Opmerkingen", { key: "wpregels", label: "Regels voor de werkplaats", soort: "regels", verplicht: false, hint: "Afspraken met de klant waar de werkplaats op moet letten, zoals bijlakken of een krasje linksvoor. Komt mee uit de offerte als de verkoper ze daar invult." });
@@ -220,6 +229,13 @@ function puntenVoor(o, nr) {
     add("Afspraak met klant", { key: "k_geboorte", label: "Geboortedatum klant", soort: "datum", pad: "klant.geboortedatum", verplicht: false, hint: "Voor de verzekeringsofferte" });
     add("Afspraak met klant", { key: "k_schadevrij", label: "Schadevrije jaren", soort: "getal", pad: "klant.schadevrij", verplicht: false });
     add("Afspraak met klant", { key: "verzekering", label: "Verzekering besproken", soort: "janee", pad: "verzekering", hint: "Alles onder één dak, originele onderdelen, BYD-monteurs" });
+    /* gaan mee in het afleverformulier naar VA (feedback Mark 2026-11-23) */
+    add("Administratie", { key: "km", label: "Actuele kilometerstand", soort: "getal", pad: "auto.km", eenheid: "km", hint: "Komt in het afleverformulier voor VA" });
+    if (zakelijkeLease(o)) add("Administratie", { key: "factuur_naar_info", label: "Factuur mailen naar", soort: "info", verplicht: false, tekst: "Zakelijke lease: de factuur gaat altijd naar het e-mailadres van de verkoper." });
+    else {
+      add("Administratie", { key: "factuur_naar", label: "Factuur mailen naar", soort: "keuze", pad: "factuur_naar", opties: FACTUUR_NAAR, verplicht: false, hint: `Leeg laten is het e-mailadres van de klant${o.klant?.email ? `: ${o.klant.email}` : ", maar dat staat nog niet in fase 1"}` });
+      if (o.factuur_naar === "ander") add("Administratie", { key: "factuur_email", label: "E-mailadres voor de factuur", soort: "tekst", pad: "klant.factuur_email" });
+    }
     add("Administratie", { key: "factuur", label: "Afleverdatum bevestigd en factuur aangevraagd", soort: "actie", knop: "Bevestigen en factuur aanvragen", hint: "Laatste moment om de afleverdatum zelf aan te passen" });
   }
 
@@ -244,6 +260,7 @@ function puntenVoor(o, nr) {
     add("Voorbereiding", { key: "poetsapp", label: "In de poetsapp gezet", soort: "vink", hint: "Plan de poetsbeurt in de poetsapp, minimaal 24 uur vooraf, anders extra kosten" });
     add("Voorbereiding", { key: "showroom", label: "Gepoetst in de showroom. Check: schoon, kabels, accessoires, mastercare, calamiteitenpakket, kenteken op de auto", soort: "vink" });
     add("Voorbereiding", { key: "km", label: "Kilometerstand", soort: "getal", pad: "auto.km", eenheid: "km" });
+    if (o.vink?.contract?.bestand) add("Voorbereiding", { key: "contract", label: "Getekend contract", soort: "upload", alleenLezen: true, verplicht: false, hint: "Open en print het voor de aflevering" });
     /* alleen als er na de verkoop iets is toegevoegd: dan kan het totaal afwijken van de order */
     if ((o.toevoegingen || []).length) add("Voorbereiding", { key: "bedragen_klopt", label: "Bedragen gecontroleerd met de order", soort: "vink", hint: "Er is na de verkoop een accessoire toegevoegd: controleer of het toe te betalen bedrag klopt met de bedragen op de order" });
     add("Voorbereiding", { key: "betaling", label: "Betaling gecontroleerd", soort: "vink", hint: o.te_betalen != null && o.te_betalen !== "" ? `Toe te betalen: € ${Number(o.te_betalen).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Ontvangen bankbetalingen" });
@@ -540,22 +557,30 @@ function premieRegels(o, euro) {
   }
   return r;
 }
-function afleverRijen(o) {
+/* verkoperMail: in het voorbeeld in de browser alleen een omschrijving; de edge function vult het echte adres in */
+function factuurMail(o, verkoperMail) {
+  const naar = factuurNaar(o);
+  if (naar === "verkoper") return verkoperMail || "";
+  if (naar === "ander") return o.klant?.factuur_email || "";
+  return o.klant?.email || "";
+}
+function afleverRijen(o, verkoperMail = `e-mailadres van ${o.verkoper}`) {
   const euro = n => typeof n === "number" && isFinite(n) ? "€ " + n.toLocaleString("nl-NL", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }) : "";
   const nl = iso => iso ? iso.split("-").reverse().join("-") : "";
   const r = (a, b = "") => [a, b], w = ["", ""];
   const pr = premieRegels(o, euro);
+  const km = typeof o.auto?.km === "number" ? `${o.auto.km.toLocaleString("nl-NL")} km` : "";
   return [r("Afleverformulier"), r("Minimaal 6 werkdagen vóór aflevering indienen bij V.A."), w,
     r("Ordernummer", o.ordernummer || ""), w, r("Klantnaam", klantNaam(o)), w, r("Afleverdatum", nl(o.afleverdatum)), w,
-    r("Actuele km-stand"), w, r("VAN IMPORTEUR TE ONTVANGEN BEDRAGEN:"),
+    r("Actuele km-stand", km), w, r("VAN IMPORTEUR TE ONTVANGEN BEDRAGEN:"),
     r("Inruilpremie excl. dealerbijdrage (incl. BTW)", pr.inruil),
     r("Retailpremie (incl. BTW)", pr.retail), r("Voorraadpremie (incl. BTW)", pr.voorraad), r("Strijdfonds (incl. BTW)", pr.strijdfonds), r("Fleetondersteuning (incl. BTW)", pr.fleet),
     r("              - AP-code:", pr.ap), r("Aanvullende toezeggingen (incl. BTW)", pr.aanvullend), r("              - DROPP-ticket:", pr.dropp), w,
     r("Boekwaarde inruiler (bij gebruikt of via CC) incl. BTW", euro(o.inruil?.boekwaarde)), w,
-    r("Gegevens inruiler ingevuld", o.heeftInruil ? "" : "N.V.T."), w, r("Toe te betalen bedrag incl. BTW", euro(o.te_betalen)), w,
-    r("Aanbetaling financiering / PL indien van toepassing"), w, r("Aantal km per jaar"), w, r("NAWTE-gegevens gecontroleerd"), w,
-    r("Klant overdragen"), w, r("Centraal Bestelorder"), w, r("E-mailadres tbv factuur", o.klant?.email || ""), w,
-    r("E-mailadres tbv mobiliteitspas"), w, r("Onderstaande in te vullen door Centrale Administratie"), w, r("Kenteken")];
+    r("Gegevens inruiler ingevuld", o.heeftInruil ? "Ja" : "N.V.T."), w, r("Toe te betalen bedrag incl. BTW", euro(o.te_betalen)), w,
+    r("Aanbetaling financiering / PL indien van toepassing"), w, r("Aantal km per jaar"), w, r("NAWTE-gegevens gecontroleerd", "Ja"), w,
+    r("Klant overdragen"), w, r("Centraal Bestelorder", "Nee"), w, r("E-mailadres tbv factuur", factuurMail(o, verkoperMail)), w,
+    r("E-mailadres tbv mobiliteitspas"), w, r("Onderstaande in te vullen door Centrale Administratie"), w, r("Kenteken", o.auto?.kenteken || "")];
 }
 
 /* Klantgegevens gaan 30 dagen na aflevering weg. */
