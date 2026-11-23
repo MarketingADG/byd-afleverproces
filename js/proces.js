@@ -44,6 +44,7 @@ const KANALEN = {
 /* Waar de factuur heen gaat (feedback Mark 2026-11-23). Bij zakelijke lease altijd naar de
    verkoper, niet naar de klant. Dezelfde regel staat in de edge function aflever-mail. */
 const FACTUUR_NAAR = { klant: "E-mailadres van de klant", ander: "Ander e-mailadres", verkoper: "E-mailadres van de verkoper (zakelijke lease)" };
+/* Alleen een regel in het afleverformulier: VA stuurt de factuur, de module mailt de klant nooit. */
 function zakelijkeLease(o) { return o.kanaal === "zakelijk-lease"; }
 function factuurNaar(o) { return zakelijkeLease(o) ? "verkoper" : (o.factuur_naar || "klant"); }
 const KANAAL_BYD = {
@@ -231,10 +232,10 @@ function puntenVoor(o, nr) {
     add("Afspraak met klant", { key: "verzekering", label: "Verzekering besproken", soort: "janee", pad: "verzekering", hint: "Alles onder één dak, originele onderdelen, BYD-monteurs" });
     /* gaan mee in het afleverformulier naar VA (feedback Mark 2026-11-23) */
     add("Administratie", { key: "km", label: "Actuele kilometerstand", soort: "getal", pad: "auto.km", eenheid: "km", hint: "Komt in het afleverformulier voor VA" });
-    if (zakelijkeLease(o)) add("Administratie", { key: "factuur_naar_info", label: "Factuur mailen naar", soort: "info", verplicht: false, tekst: "Zakelijke lease: de factuur gaat altijd naar het e-mailadres van de verkoper." });
+    if (zakelijkeLease(o)) add("Administratie", { key: "factuur_naar_info", label: "E-mailadres voor de factuur", soort: "info", verplicht: false, tekst: "Zakelijke lease: in het afleverformulier voor VA staat altijd het e-mailadres van de verkoper." });
     else {
-      add("Administratie", { key: "factuur_naar", label: "Factuur mailen naar", soort: "keuze", pad: "factuur_naar", opties: FACTUUR_NAAR, verplicht: false, hint: `Leeg laten is het e-mailadres van de klant${o.klant?.email ? `: ${o.klant.email}` : ", maar dat staat nog niet in fase 1"}` });
-      if (o.factuur_naar === "ander") add("Administratie", { key: "factuur_email", label: "E-mailadres voor de factuur", soort: "tekst", pad: "klant.factuur_email" });
+      add("Administratie", { key: "factuur_naar", label: "E-mailadres voor de factuur", soort: "keuze", pad: "factuur_naar", opties: FACTUUR_NAAR, verplicht: false, hint: `Komt in het afleverformulier; VA stuurt de factuur. Leeg laten is het e-mailadres van de klant${o.klant?.email ? `: ${o.klant.email}` : ", maar dat staat nog niet in fase 1"}` });
+      if (o.factuur_naar === "ander") add("Administratie", { key: "factuur_email", label: "Ander e-mailadres voor de factuur", soort: "tekst", pad: "klant.factuur_email" });
     }
     add("Administratie", { key: "factuur", label: "Afleverdatum bevestigd en factuur aangevraagd", soort: "actie", knop: "Bevestigen en factuur aanvragen", hint: "Laatste moment om de afleverdatum zelf aan te passen" });
   }
