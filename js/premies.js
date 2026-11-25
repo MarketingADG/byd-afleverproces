@@ -33,7 +33,7 @@ function teken() {
     <section class="paneel">
       <h2>Premies per model</h2>
       <p class="toelichting">Een model kan meerdere premiesoorten hebben; de verkoper kiest er bij de order één uit. Een premie is een vast bedrag incl. btw of een percentage van de netto catalogusprijs; bij een percentage vult de verkoper in fase 1 het bedrag zelf in. Laat de uitvoering leeg als de premie voor alle uitvoeringen geldt.</p>
-      ${rijen.length ? `<table class="tabel premietabel"><thead><tr><th>Model</th><th>Premiesoort</th><th>Uitvoering</th><th>Premie</th><th>Premiecode</th><th>Geldig tot en met</th><th>Uiterste registratiedatum</th><th>Laatst gewijzigd</th><th><span class="vh">Verwijderen</span></th></tr></thead><tbody>
+      ${rijen.length ? `<div class="premie-scroll"><table class="tabel premietabel"><thead><tr><th>Model</th><th>Premiesoort</th><th>Uitvoering</th><th>Premie</th><th>Premiecode</th><th>Geldig tot en met</th><th>Uiterste registratiedatum</th><th>Laatst gewijzigd</th><th><span class="vh">Verwijderen</span></th></tr></thead><tbody>
         ${rijen.map((p, i) => {
           const eerste = i === 0 || rijen[i - 1].model !== p.model;
           const naam = esc([p.model, p.soort, p.uitvoering].filter(Boolean).join(", "));
@@ -46,10 +46,10 @@ function teken() {
           <td><label class="vh" for="c_${p.id}">Premiecode ${naam}</label><input id="c_${p.id}" class="invoer" data-id="${p.id}" data-veld="code" value="${esc(p.code || "")}"></td>
           <td><label class="vh" for="t_${p.id}">Geldig tot ${naam}</label><input id="t_${p.id}" class="invoer" type="date" data-id="${p.id}" data-veld="tot" value="${p.tot || ""}"></td>
           <td><label class="vh" for="r_${p.id}">Uiterste registratiedatum ${naam}</label><input id="r_${p.id}" class="invoer" type="date" data-id="${p.id}" data-veld="reg" value="${p.reg || ""}"></td>
-          <td>${p.gewijzigd ? `${esc(p.gewijzigd.door)}, ${tijdstip(p.gewijzigd.op)}` : ""}</td>
+          <td class="gewijzigd">${p.gewijzigd ? `<span>${esc(p.gewijzigd.door)}</span><span>${tijdstip(p.gewijzigd.op)}</span>` : ""}</td>
           <td><button type="button" class="knop link" data-weg="${p.id}">Verwijderen</button></td></tr>`;
         }).join("")}
-      </tbody></table>` : `<p class="zij-leeg">Nog geen premies ingevoerd.</p>`}
+      </tbody></table></div>` : `<p class="zij-leeg">Nog geen premies ingevoerd.</p>`}
     </section>
     <form class="paneel" id="f_premie">
       <h2>Premie toevoegen</h2>

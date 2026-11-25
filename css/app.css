@@ -518,10 +518,18 @@ details.opgelost .items{margin-top:10px}
 #f_premie .form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:760px){#f_premie .form-grid{grid-template-columns:1fr 1fr}}
 .premietabel tr.nieuw-model td{border-top:2px solid var(--line)}
-.premietabel .invoer{width:130px}
-.premietabel input[type=number]{width:100px}
+/* De premietabel heeft negen kolommen met invoervelden. Past hij niet in het paneel, dan schuift
+   hij binnen het paneel in plaats van eroverheen te vallen (was zo op 25-11-2026). */
+.premie-scroll{overflow-x:auto}
+.premietabel .invoer{width:112px}
+.premietabel input[type=date]{width:128px}
+.premietabel input[type=number]{width:84px}
 .premietabel{width:100%}
-@media (max-width:760px){.premietabel{display:block;overflow-x:auto}}
+.premietabel .gewijzigd{font-size:var(--t-klein);line-height:1.35;white-space:nowrap}
+.premietabel .gewijzigd span{display:block}
+.premietabel th{white-space:normal;vertical-align:bottom}
+/* op een laptopscherm de eenheid onder het veld, dan blijft er ruimte voor de premiesoort */
+@media (max-width:1560px){.premietabel td.premie-waarde span{display:block;margin:2px 0 0}}
 #f_soort .grijs{color:var(--muted);font-size:var(--t-klein)}
 #f_soort .toevoegen .invoer{max-width:320px}
 .poets-dag .dag-leeg{font-size:var(--t-klein)}
