@@ -127,6 +127,9 @@ function puntenVoor(o, nr) {
   if (nr === 1) {
     /* het getekende contract staat in de module, niet in CarIt (feedback Mark 2026-11-23); het gaat
        weg met de rest van de klantgegevens, 30 dagen na de aflevering */
+    /* de order staat standaard op je eigen naam; wie fase 1 mag invullen kan hem op een collega zetten
+       (feedback Mark 2026-11-25) */
+    add("Order", { key: "verkoper", label: "Verkoper", soort: "keuze", pad: "verkoper", opties: Object.fromEntries(verkoopNamen(o).map(n => [n, n])) });
     add("Order", { key: "contract", label: "Getekend contract", soort: "upload", hint: "Upload het getekende contract als pdf, jpg of png (maximaal 8 MB). Bij de aflevering open en print je het hier" });
     add("Order", { key: "orderbev", label: "Orderbevestiging staat in CarIt", soort: "vink" });
     add("Order", { key: "ordernummer", label: "Ordernummer CarIt", soort: "tekst", pad: "ordernummer", hint: "Neem over uit CarIt zodra de order daar staat. Komt bewust niet uit de offertemodule" });
@@ -134,13 +137,14 @@ function puntenVoor(o, nr) {
     if (nieuw) add("Order", { key: "voorraad", label: "Waar komt de auto vandaan", soort: "keuze", pad: "voorraad", opties: VOORRAAD });
     if (o.type === "gebruikt") add("Order", { key: "voorraad", label: "Waar komt de auto vandaan", soort: "keuze", pad: "voorraad", opties: VOORRAAD_GEBRUIKT });
     add("Order", { key: "levertijd", label: "Afgesproken levertijd", soort: "datum", pad: "levertijd", hint: "Start de levertijd-timer" });
-    add("Order", { key: "te_betalen", label: "Totaal toe te betalen bedrag", soort: "getal", pad: "te_betalen", eenheid: "€", hint: "Heeft de administratie nodig voor de factuur" });
+    add("Order", { key: "te_betalen", label: "Totaal toe te betalen bedrag incl. btw", soort: "getal", pad: "te_betalen", eenheid: "€", hint: "Heeft de administratie nodig voor de factuur. Altijd inclusief btw, ook bij een zakelijke order" });
     add("Order", { key: "mastercare", label: "Mastercare", soort: "janee", pad: "mastercare" });
     add("Order", { key: "ott", label: "OTT-tenaamstelling", soort: "janee", pad: "ott" });
     if (o.ott) add("Order", { key: "ott_via", label: "Via wie wordt de OTT opgevraagd", soort: "tekst", pad: "ott_via" });
     add("Order", { key: "bnp", label: "Financiering via BNP Paribas", soort: "janee", pad: "bnp" });
     if (o.bnp) add("Order", { key: "bnp_contract", label: "BNP-contract ontvangen", soort: "vink", verplicht: false, hint: "Afvinken zodra BNP het contract stuurt; moet er zijn vóór de aflevering" });
 
+    add("Klant", { key: "k_bedrijf", label: "Bedrijfsnaam", soort: "tekst", pad: "klant.bedrijf", verplicht: false, hint: "Alleen bij een zakelijke order. Komt mee uit de offerte" });
     add("Klant", { key: "k_aanhef", label: "Aanhef", soort: "keuze", pad: "klant.aanhef", opties: { "Dhr.": "Dhr.", "Mevr.": "Mevr.", "Fam.": "Fam." } });
     add("Klant", { key: "k_naam", label: "Achternaam", soort: "tekst", pad: "klant.naam" });
     add("Klant", { key: "k_postcode", label: "Postcode", soort: "tekst", pad: "klant.postcode" });
@@ -263,7 +267,7 @@ function puntenVoor(o, nr) {
     add("Voorbereiding", { key: "poetsapp", label: "In de poetsapp gezet", soort: "vink", hint: "Plan de poetsbeurt in de poetsapp, minimaal 24 uur vooraf, anders extra kosten" });
     add("Voorbereiding", { key: "showroom", label: "Gepoetst in de showroom. Check: schoon, kabels, accessoires, mastercare, calamiteitenpakket, kenteken op de auto", soort: "vink" });
     add("Voorbereiding", { key: "km", label: "Kilometerstand", soort: "getal", pad: "auto.km", eenheid: "km" });
-    if (o.vink?.contract?.bestand) add("Voorbereiding", { key: "contract", label: "Getekend contract", soort: "upload", alleenLezen: true, verplicht: false, hint: "Open en print het voor de aflevering" });
+    if (o.vink?.contract?.bestand || o.vink?.contract?.fleetVan) add("Voorbereiding", { key: "contract", label: "Getekend contract", soort: "upload", alleenLezen: true, verplicht: false, hint: "Open en print het voor de aflevering" });
     /* alleen als er na de verkoop iets is toegevoegd: dan kan het totaal afwijken van de order */
     if ((o.toevoegingen || []).length) add("Voorbereiding", { key: "bedragen_klopt", label: "Bedragen gecontroleerd met de order", soort: "vink", hint: "Er is na de verkoop een accessoire toegevoegd: controleer of het toe te betalen bedrag klopt met de bedragen op de order" });
     add("Voorbereiding", { key: "betaling", label: "Betaling gecontroleerd", soort: "vink", hint: o.te_betalen != null && o.te_betalen !== "" ? `Toe te betalen: € ${Number(o.te_betalen).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Ontvangen bankbetalingen" });
@@ -597,7 +601,37 @@ function teZienInPoetsplanning(o) { return !o.concept && !o.vink?.afgeleverd && 
 function klantNaam(o) {
   if (o.gewist) return "Klantgegevens gewist";
   const k = o.klant || {};
-  return [k.aanhef, k.naam].filter(Boolean).join(" ") || "Nieuwe klant";
+  /* zakelijke order: de bedrijfsnaam voorop (feedback Mark 2026-11-25). Dezelfde regel staat in
+     de edge function aflever-mail. */
+  return [String(k.bedrijf || "").trim(), [k.aanhef, k.naam].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "Nieuwe klant";
+}
+
+/* ---------- wie verkoopt er (feedback Mark 2026-11-25) ----------
+   Een order kan op naam staan van een verkoper, de afleverspecialist of de manager: Mark en
+   Nils verkopen ook. In de filters staan de verkopers en de afleverspecialist altijd, en
+   verder iedereen die een order op zijn naam heeft. */
+const VERKOOP_ROLLEN = ["verkoper", "afleverspecialist", "manager"];
+function personenLijst() { return typeof PERSONEN !== "undefined" ? PERSONEN : []; }
+function opNaam(a, b) { return a.localeCompare(b, "nl"); }
+function verkoopNamen(o) {
+  const namen = new Set(personenLijst().filter(p => VERKOOP_ROLLEN.includes(p.rol)).map(p => p.naam));
+  if (o && o.verkoper) namen.add(o.verkoper);
+  return [...namen].sort(opNaam);
+}
+function verkopersMetOrders(orders) {
+  const namen = new Set(personenLijst().filter(p => p.rol === "verkoper" || p.rol === "afleverspecialist").map(p => p.naam));
+  for (const o of orders) if (o.verkoper) namen.add(o.verkoper);
+  return [...namen].sort(opNaam);
+}
+
+/* ---------- zakelijke order: bedrag inclusief btw (feedback Mark 2026-11-25) ----------
+   Een zakelijke offerte rekent exclusief btw. Tot 2026-11-25 kwam dat bedrag ook zo, en
+   afgerond op hele euro's, in de order terecht. De administratie heeft het bedrag inclusief
+   btw nodig. Orders van daarvoor vragen daarom een controle voordat de factuur wordt
+   aangevraagd; nieuwe orders krijgen het bedrag inclusief btw uit de offertemodule. */
+function zakelijk(o) { return !!o.zakelijk || /^zakelijk/.test(o.kanaal || "") || !!String(o.klant?.bedrijf || "").trim(); }
+function btwControleNodig(o) {
+  return (o.bron === "offertemodule" || !!o.btw_onzeker) && !o.te_betalen_incl && zakelijk(o) && typeof o.te_betalen === "number";
 }
 
 /* ---------- vragen van de werkplaats aan de verkoper (feedback Mark, punt 1) ----------

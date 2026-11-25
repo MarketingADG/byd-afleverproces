@@ -115,6 +115,22 @@ function premieLabel(p) { return [p.soort, p.uitvoering, premieWaarde(p)].filter
    database en laadt de pagina opnieuw met de nieuwste versie: niemand overschrijft
    andermans werk zonder het te zien. */
 
+/* Een nieuwe order komt pas in de database als de gebruiker op "Opslaan als concept" of
+   "Opslaan" klikt (feedback Mark 2026-11-25: er kwamen te snel lege concepten in het
+   overzicht). Tot die tijd staat zijn nummer in ONBEWAARD en slaat bewaar() hem over. */
+const ONBEWAARD = new Set();
+let onbewaardGewijzigd = false;
+function conceptVastleggen(id) {
+  ONBEWAARD.delete(id);
+  if (!ONBEWAARD.size) onbewaardGewijzigd = false;
+  bewaar();
+}
+function onbewaardWeggooien() {
+  for (const id of ONBEWAARD) { const i = ORDERS.findIndex(o => o.id === id); if (i >= 0) ORDERS.splice(i, 1); }
+  ONBEWAARD.clear();
+  onbewaardGewijzigd = false;
+}
+
 let wachtrij = Promise.resolve();
 let openstaand = 0;
 const ingepland = new Set();
@@ -132,6 +148,7 @@ function wachtOpOpslaan() { return wachtrij; }
 
 function bewaar() {
   for (const o of ORDERS) {
+    if (ONBEWAARD.has(o.id)) continue;
     const b = BEWAARD.get(o.id);
     if (!b || b.json !== JSON.stringify(o)) inplannen(`o:${o.id}`, () => orderOpslaan(o.id));
   }
@@ -211,7 +228,7 @@ function opslagFout(e) {
   if (!herladenGepland) { herladenGepland = true; setTimeout(() => location.reload(), 4500); }
 }
 
-addEventListener("beforeunload", e => { if (openstaand > 0) { e.preventDefault(); e.returnValue = ""; } });
+addEventListener("beforeunload", e => { if (openstaand > 0 || (ONBEWAARD.size && onbewaardGewijzigd)) { e.preventDefault(); e.returnValue = ""; } });
 
 /* ---------- doorgezette offertes uit de offertemodule ----------
    Zet een verkoper in de offertemodule een offerte op verkocht, dan staat hij hier bij het
@@ -234,7 +251,7 @@ function orderVanKoppeling(rij) {
     levertijd: rij.levertijd || "",
     mastercare: !!p.mastercare,
     heeftInruil: (p.inruil || []).length > 0,
-    klant: { naam: klant.naam || "", email: klant.email || "", tel: klant.tel || "", postcode: klant.postcode || "", huisnr: klant.huisnr || "" },
+    klant: { naam: klant.naam || "", email: klant.email || "", tel: klant.tel || "", postcode: klant.postcode || "", huisnr: klant.huisnr || "", ...(klant.bedrijf ? { bedrijf: String(klant.bedrijf) } : {}) },
     auto: { model, uitvoering: auto.uitvoering || "", kleur: auto.kleur || "", chassis: auto.chassis || "", kenteken: auto.kenteken || "", phev: !!auto.phev },
     accessoires: (p.accessoires || []).map(naam => ({ naam })),
     werkplaatsregels: p.werkplaatsregels || [],
@@ -243,6 +260,16 @@ function orderVanKoppeling(rij) {
     vink: {}, contact: [], opmerkingen: [],
     log: [{ op: nu_, door: rij.verkoper, wat: `Order binnengekomen uit de offertemodule: offerte ${rij.offerte_id} verkocht, verwachte levering ${datumKort(rij.levertijd)}` }]
   };
+  /* payload versie 2 (2026-11-25): te_betalen is altijd inclusief btw en met centen; bij een
+     zakelijke offerte komt het bedrag exclusief btw er los bij. Versie 1 gaf bij zakelijk het
+     bedrag exclusief btw, afgerond op hele euro's: dan vraagt fase 1 om een controle. */
+  if (Number(p.versie) >= 2) {
+    o.te_betalen_incl = true;
+    if (p.zakelijk) {
+      o.zakelijk = true;
+      if (typeof p.te_betalen_excl === "number") o.te_betalen_excl = p.te_betalen_excl;
+    }
+  }
   if (o.heeftInruil) {
     const [a, b] = p.inruil;
     /* boekwaarde bewust leeg: die is vaak lager dan de inruilprijs uit de offerte, bijvoorbeeld door

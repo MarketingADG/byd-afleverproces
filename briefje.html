@@ -7,37 +7,38 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://vvdtotcxjjeydnowzksf.supabase.co https://opendata.rdw.nl; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="referrer" content="no-referrer">
 <title>Briefje voorruit · Afleverproces BYD Groningen</title>
-<link rel="stylesheet" href="css/huisstijl.css?v=20261123c">
+<link rel="stylesheet" href="css/huisstijl.css?v=20261125a">
 <style>
-  @page { size: A5 landscape; margin: 0; }
+  /* A4 liggend (feedback Mark 2026-11-25; was A5). Zelfde opmaak, alle maten 1,414 keer zo groot. */
+  @page { size: A4 landscape; margin: 0; }
   body { background: #e9e9ec; margin: 0; font-family: var(--font, "Sofia Pro", sans-serif); color: #000; }
   .knoppen { display: flex; gap: 8px; justify-content: center; padding: 16px; }
   .knoppen button { background: #282830; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font: inherit; font-weight: 700; cursor: pointer; }
-  .vel { width: 210mm; height: 148mm; margin: 0 auto 24px; background: #fff; box-sizing: border-box; padding: 14mm 16mm; display: flex; flex-direction: column; border-top: 8mm solid #ca2222; }
+  .vel { width: 297mm; height: 209.5mm; margin: 0 auto 24px; background: #fff; box-sizing: border-box; padding: 20mm 23mm; display: flex; flex-direction: column; border-top: 11mm solid #ca2222; overflow: hidden; }
   .boven { display: flex; justify-content: space-between; align-items: center; }
-  .boven img { height: 11mm; }
-  .boven .wat { font-size: 15pt; font-weight: 700; }
-  .midden { display: flex; justify-content: space-between; align-items: flex-start; gap: 10mm; margin-top: 12mm; }
+  .boven img { height: 15.5mm; }
+  .boven .wat { font-size: 21pt; font-weight: 700; }
+  .midden { display: flex; justify-content: space-between; align-items: flex-start; gap: 14mm; margin-top: 14mm; }
   .meldcode { text-align: right; }
-  .meldcode .lbl { font-size: 13pt; font-weight: 700; }
-  .meldcode .code { font-size: 64pt; font-weight: 800; letter-spacing: .02em; line-height: 1; }
-  .datum { font-size: 44pt; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
-  .tijd { font-size: 22pt; font-weight: 700; margin-top: 3mm; }
-  .klant { font-size: 30pt; font-weight: 800; margin-top: 9mm; }
-  .auto { font-size: 15pt; font-weight: 600; margin-top: 2mm; }
-  .onder { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; border-top: 1px solid #000; padding-top: 5mm; }
-  .onder .lbl { font-size: 11pt; font-weight: 600; }
-  .onder .w { font-size: 20pt; font-weight: 800; margin-top: 1mm; }
+  .meldcode .lbl { font-size: 18pt; font-weight: 700; }
+  .meldcode .code { font-size: 90pt; font-weight: 800; letter-spacing: .02em; line-height: 1; }
+  .datum { font-size: 62pt; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+  .tijd { font-size: 31pt; font-weight: 700; margin-top: 4mm; }
+  .klant { font-size: 42pt; font-weight: 800; margin-top: 10mm; line-height: 1.1; }
+  .auto { font-size: 21pt; font-weight: 600; margin-top: 3mm; }
+  .onder { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8.5mm; border-top: 1.4px solid #000; padding-top: 7mm; }
+  .onder .lbl { font-size: 15.5pt; font-weight: 600; }
+  .onder .w { font-size: 28pt; font-weight: 800; margin-top: 1.5mm; }
   .onder .w.mc { color: #ca2222; }
   @media print { body { background: #fff; } .knoppen { display: none; } .vel { margin: 0; } }
 </style>
 </head>
 <body>
-<div class="knoppen"><button type="button" id="printen">Printen op A5</button></div>
+<div class="knoppen"><button type="button" id="printen">Printen op A4</button></div>
 <div id="vel"></div>
-<script src="js/proces.js?v=20261123c"></script>
-<script src="js/sessie.js?v=20261123c"></script>
-<script src="js/ui.js?v=20261123c"></script>
-<script data-start="js/briefje.js?v=20261123c"></script>
+<script src="js/proces.js?v=20261125a"></script>
+<script src="js/sessie.js?v=20261125a"></script>
+<script src="js/ui.js?v=20261125a"></script>
+<script data-start="js/briefje.js?v=20261125a"></script>
 </body>
 </html>

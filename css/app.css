@@ -510,7 +510,10 @@ details.opgelost .items{margin-top:10px}
 
 /* ---------- concepten, wijziging afleverdatum, verwijderen ---------- */
 .concepten{margin-bottom:20px}
-.order-titel .verwijder{margin-left:auto}
+.order-titel .order-acties{margin-left:auto;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.kopie-venster>p{padding:0 20px 14px;line-height:1.5}
+.kopie-veld{padding:0 20px 4px}
+.kopie-veld .invoer{width:120px;margin-top:6px}
 .wijziging{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 #f_premie .form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:760px){#f_premie .form-grid{grid-template-columns:1fr 1fr}}
@@ -581,3 +584,4 @@ details.opgelost .items{margin-top:10px}
 .snelheid .toelichting{margin-bottom:10px}
 .premietabel .premie-waarde{white-space:nowrap}
 .premietabel .premie-waarde span{margin-left:6px;color:var(--muted);font-size:.85em}
+.punt .ctl .rij-knoppen{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}

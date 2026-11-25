@@ -15,7 +15,8 @@ const orders = laadOrders();
 const imports = laadImports();
 
 const fVerkoper = document.getElementById("f_verkoper");
-PERSONEN.filter(p => p.rol === "verkoper").forEach(p => fVerkoper.insertAdjacentHTML("beforeend", `<option>${esc(p.naam)}</option>`));
+/* ook de afleverspecialist en de manager als zij orders op hun naam hebben (feedback Mark 2026-11-25) */
+verkopersMetOrders(orders).forEach(naam => fVerkoper.insertAdjacentHTML("beforeend", `<option>${esc(naam)}</option>`));
 if (ik.rol === "verkoper") fVerkoper.value = ik.naam;
 
 const HERKOMST = { "andere-locatie": "Andere vestiging", bestelling: "Bestelling", winkel: "Op voorraad" };
@@ -55,7 +56,7 @@ function blok(o, rij, i) {
   const timer = contactTimer(o);
   const kleur = rij === 1 ? onderwegKleur(o) : kaartStatus(o);
   const kop = `<div class="b1"><span class="stip st-${kleur}" title="${{ grijs: "Op schema", oranje: "Let op", rood: "Te laat", groen: "Klaar" }[kleur]}"></span>
-    <a class="naam" href="order.html?id=${o.id}">${esc(klantNaam(o))}</a>${o.ott ? `<span class="label">OTT</span>` : ""}
+    <a class="naam" href="order.html?id=${o.id}">${esc(klantNaam(o))}</a>${o.fleet ? `<span class="label">Fleet</span>` : ""}${o.ott ? `<span class="label">OTT</span>` : ""}
     <span class="avatar klein" title="Verkoper: ${esc(o.verkoper)}">${initialen(o.verkoper)}</span></div>`;
   const bel = timer ? `<span class="ico" title="${esc(timer.tekst)}">${icoon("bellen", 14)}<span class="vh">${esc(timer.tekst)}</span></span>` : "";
   let midden = "", onder = "";
@@ -109,7 +110,7 @@ function teken() {
     <div class="rijen">${concepten.map(o => {
       const open = openPunten(o, 1).length;
       return `<a class="taak" href="order.html?id=${o.id}#fase-1"><span class="stip st-grijs"></span>
-        <div><div class="wie">${esc(klantNaam(o))}</div><div class="sub">${esc(o.auto.model || "Model nog kiezen")} · ${esc(o.verkoper)}</div></div>
+        <div><div class="wie">${esc(klantNaam(o))}</div><div class="sub">${esc(o.auto.model || "Model nog kiezen")} · ${esc(o.verkoper)}${o.fleet ? " · fleetorder" : ""}</div></div>
         <div class="wat"><div class="kop">${open ? `Nog ${open} ${open === 1 ? "punt" : "punten"} open` : "Klaar om op te slaan"}</div><div class="sub">Staat pas in het overzicht na Opslaan</div></div>
         <div class="wanneer">Begonnen ${relatief(o.aangemaakt.slice(0, 10))}</div></a>`;
     }).join("")}</div></section>` : "";

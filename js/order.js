@@ -1,8 +1,9 @@
 /* Orderdetail: één auto, één fase tegelijk. Kies de fase in de stappenbalk; elke fase is
    één checklist met dezelfde regel per punt. Rechts staan open punten, klantcontact en logboek.
    Een afgeronde fase blijft te herstellen door wie hem mag invullen; elke wijziging komt in
-   het logboek. Een nieuwe order is een concept tot de verkoper fase 1 heeft ingevuld en op
-   Opslaan klikt. */
+   het logboek. Een nieuwe order staat alleen in het geheugen van de pagina tot de verkoper op
+   "Opslaan als concept" of "Opslaan" klikt; daarna is hij een concept tot fase 1 is ingevuld
+   en opgeslagen. */
 
 const ik = kopbalk("");
 const orders = laadOrders();
@@ -11,20 +12,27 @@ const hoofd = document.getElementById("order");
 
 
 /* ---------- nieuwe order ---------- */
-if (params.get("nieuw")) {
-  /* intern nummer; het echte ordernummer vult de verkoper in fase 1 in */
+if (params.get("nieuw") && VERKOOP_ROLLEN.includes(ik.rol)) {
+  /* intern nummer; het echte ordernummer vult de verkoper in fase 1 in. De order staat op je
+     eigen naam (was: de eerste verkoper van de lijst) en wordt nog niet opgeslagen: dat gebeurt
+     pas met "Opslaan als concept" of "Opslaan" (feedback Mark 2026-11-25). */
   const nummer = `N${Date.now()}`;
-  const verkoper = ik.rol === "verkoper" ? ik.naam : (PERSONEN.find(p => p.rol === "verkoper")?.naam || ik.naam);
   orders.push({
-    id: nummer, ordernummer: "", type: "nieuw", voorraad: "winkel", verkoper, aangemaakt: nu(), concept: true,
+    id: nummer, ordernummer: "", type: "nieuw", voorraad: "winkel", verkoper: ik.naam, aangemaakt: nu(), concept: true,
     klant: {}, auto: {}, accessoires: [], vink: {}, contact: [], opmerkingen: [],
     log: [{ op: nu(), door: ik.naam, wat: "Order aangemaakt" }]
   });
-  bewaar(orders);
-  history.replaceState(null, "", `order.html?id=${nummer}`);
+  ONBEWAARD.add(nummer);
 }
 
-const o = orders.find(x => x.id === (params.get("id") || orders[orders.length - 1].id));
+const o = orders.find(x => x.id === (params.get("id") || orders[orders.length - 1]?.id));
+const nogNietOpgeslagen = () => !!o && ONBEWAARD.has(o.id);
+/* de nieuwe order naar de database: vanaf nu bewaart elke wijziging zichzelf, zoals bij elk concept */
+function vastleggen() {
+  if (!nogNietOpgeslagen()) return;
+  conceptVastleggen(o.id);
+  history.replaceState(null, "", `order.html?id=${o.id}${location.hash}`);
+}
 if (!o) hoofd.innerHTML = `<p>Deze order bestaat niet (meer). <a href="${startpagina(ik.rol)}">Terug</a></p>`;
 
 function nrUit(s) { return s === "ott" ? "ott" : Number(s); }
@@ -54,6 +62,7 @@ function alleStatussen() { return Object.fromEntries(FASES.map(f => [f.nr, faseS
 
 function wijzig(fn, logtekst) {
   const voor = alleStatussen();
+  if (nogNietOpgeslagen()) onbewaardGewijzigd = true;
   fn();
   if (logtekst) o.log.push({ op: nu(), door: ik.naam, wat: logtekst });
   const imports = laadImports();
@@ -107,10 +116,10 @@ function puntHtml(p, mag) {
       const w = lees(o, p.pad);
       const euro = p.eenheid === "€";
       const type = euro ? "text" : ({ getal: "number", datum: "date", tijd: "time" }[p.soort] || "text");
-      const val = euro ? (w === "" || w == null ? "" : "€ " + Number(w).toLocaleString("nl-NL")) : (w ?? "");
+      const val = euro ? bedrag(w) : (w ?? "");
       const min = p.key === "afleverdatum" ? `min="${vroegsteAflevering(o)}"` : "";
       ctl = mag
-        ? `<input id="${id}" class="invoer ${p.soort === "tekst" ? "" : "half"}" type="${type}" ${min} ${euro ? 'inputmode="numeric"' : ""} data-pad="${p.pad}" data-soort="${euro ? "bedrag" : p.soort}" ${dl} value="${esc(val)}">`
+        ? `<input id="${id}" class="invoer ${p.soort === "tekst" ? "" : "half"}" type="${type}" ${min} ${euro ? 'inputmode="decimal"' : ""} data-pad="${p.pad}" data-soort="${euro ? "bedrag" : p.soort}" ${dl} value="${esc(val)}">`
         : `<span class="waarde">${esc(waardeTekst(p, w))}</span>`;
       break;
     }
@@ -158,8 +167,12 @@ function puntHtml(p, mag) {
     case "upload": {
       /* het bestand zelf staat in de database (aflever.bestanden); in de order alleen wie, wanneer en de naam.
          Een oud vinkje zonder bestand ("staat in CarIt") blijft gelden */
-      if (klaar) meta = v.bestand ? wieWanneer : `${wieWanneer} · afgevinkt als: staat in CarIt`;
-      const open = v?.bestand ? `<button type="button" class="knop" data-open-bestand="${p.key}">Openen en printen</button>` : "";
+      const bron = v?.fleetVan ? orders.find(x => x.id === v.fleetVan) : null;
+      if (klaar) meta = v.bestand ? wieWanneer
+        : v.fleetVan ? `Fleetorder: zelfde contract als order ${bron?.ordernummer || v.fleetVan}${bron?.vink.contract?.bestand ? "" : ", daar staat geen bestand (meer)"}`
+        : `${wieWanneer} · afgevinkt als: staat in CarIt`;
+      const open = v?.bestand ? `<button type="button" class="knop" data-open-bestand="${p.key}">Openen en printen</button>`
+        : bron?.vink.contract?.bestand ? `<button type="button" class="knop" data-open-bestand="${p.key}" data-van="${esc(bron.id)}">Openen en printen</button>` : "";
       const up = mag && !p.alleenLezen && !o.gewist
         ? `<label class="knop ${klaar ? "" : "donker"}" for="${id}">${v?.bestand ? "Vervangen" : "Uploaden"}</label><input type="file" id="${id}" class="vh" accept="application/pdf,image/jpeg,image/png" data-upload="${p.key}" ${dl}>`
         : "";
@@ -295,6 +308,12 @@ function puntHtml(p, mag) {
         <button type="button" class="knop" id="wijz_sturen">Wijziging naar administratie</button></div>`;
     }
   }
+  if (p.key === "te_betalen") {
+    if (btwControleNodig(o)) {
+      metaRood = "Zakelijke order uit de offertemodule: dit bedrag kwam exclusief btw en afgerond op hele euro's binnen. Vul hier het bedrag inclusief btw in; dat gaat naar de administratie.";
+      if (mag) { breed = true; onder = `<button type="button" class="knop" id="btw_klopt">Dit bedrag is al inclusief btw</button>`; }
+    } else if (typeof o.te_betalen_excl === "number") meta = `Inclusief btw, zo gaat het naar de administratie. Exclusief btw is het ${bedrag(o.te_betalen_excl)}.`;
+  }
   if (p.key === "wp_deadline") {
     const weekend = o.afleverdatum && wpDeadline(o) !== plusDagen(o.afleverdatum, -2);
     meta = o.afleverdatum ? `${wpKlaarTekst(o)}, 48 uur voor de aflevering${weekend ? ". Dat valt in het weekend, dus de vrijdag ervoor" : ""}. Dit ziet de serviceadviseur in zijn agenda.` : "Volgt uit de afleverdatum.";
@@ -323,6 +342,7 @@ function puntHtml(p, mag) {
 function actieGeblokt(key) {
   if (key === "binnen" && !(o.afleverdatum && o.aflevertijd)) return "Plan eerst de afleverdatum en het tijdsblok. Die leg je vast bij binnenkomst.";
   if (key === "factuur" && !(o.auto.kenteken && o.afleverdatum && o.aflevertijd)) return "Kan pas als kenteken, afleverdatum en tijdsblok er zijn.";
+  if (key === "factuur" && btwControleNodig(o)) return "Controleer eerst het toe te betalen bedrag in fase 1: bij deze zakelijke order kwam het exclusief btw binnen, de administratie heeft het inclusief btw nodig.";
   if (key === "factuur" && !o.ordernummer) return "Vul eerst het CarIt-ordernummer in bij fase 1. Zonder dat nummer kan VA het afleverformulier niet verwerken.";
   if (key === "factuur" && typeof o.auto.km !== "number") return "Vul eerst de actuele kilometerstand in. Die staat in het afleverformulier voor VA.";
   if (key === "factuur" && factuurNaar(o) !== "verkoper" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(factuurMail(o).trim()))
@@ -351,7 +371,9 @@ function faseHtml(f) {
   const pct = verplicht.length ? Math.round(gedaan / verplicht.length * 100) : 100;
 
   const m = [];
-  if (f.nr === 1 && o.concept) m.push(`<div class="melding oranje"><b>Concept.</b> Deze order staat nog niet in het overzicht. Vul alles in en klik onderaan op Opslaan.</div>`);
+  if (f.nr === 1 && o.concept) m.push(nogNietOpgeslagen()
+    ? `<div class="melding oranje"><b>Nog niet opgeslagen.</b> Deze order bestaat pas als je onderaan op Opslaan als concept of op Opslaan klikt. Ga je eerder weg, dan is hij weg.</div>`
+    : `<div class="melding oranje"><b>Concept.</b> Deze order staat nog niet in het overzicht. Vul alles in en klik onderaan op Opslaan.</div>`);
   if (status === "rood") m.push(`<div class="melding rood"><b>Te laat.</b> ${esc(waaromTeLaat(o, f.nr))}.</div>`);
   if (!magRol && status !== "grijs") m.push(`<div class="melding met-icoon">${icoon("oog", 20)}<div><b>Alleen meelezen.</b> Deze fase is van ${esc(eigenaar)} (${ROLLEN[f.eigenaar].toLowerCase()}).${lopend(status) ? " Mist er iets? Plaats rechts een open punt." : ""}</div></div>`);
   if (o.heropend?.[f.nr]) m.push(`<div class="melding oranje">Heropend door ${esc(o.heropend[f.nr].door)}, ${tijdstip(o.heropend[f.nr].op)}.${magRol ? `<button type="button" class="knop" data-afronden="${f.nr}">Opnieuw afronden</button>` : ""}</div>`);
@@ -385,9 +407,12 @@ function faseHtml(f) {
   const briefje = f.nr === 1 && o.voorraad === "winkel" ? `<a class="knop" href="briefje.html?id=${o.id}" target="_blank">Print briefje voorruit</a>` : "";
   if (f.nr === 1 && o.concept && mag) {
     const open = openPunten(o, 1).length;
+    const nieuw = nogNietOpgeslagen();
+    const nogOpen = `Nog ${open} ${open === 1 ? "punt" : "punten"} open.`;
     voet = `<div class="fase-voet">
       <button type="button" class="knop donker ${open ? "uit" : ""}" id="opslaan" ${open ? 'aria-disabled="true"' : ""}>Opslaan</button>
-      ${briefje}<span>${open ? `Nog ${open} ${open === 1 ? "punt" : "punten"} open. Tot die tijd blijft de order een concept.` : "Alles ingevuld."}</span></div>`;
+      ${nieuw ? `<button type="button" class="knop" id="concept_opslaan">Opslaan als concept</button>` : briefje}
+      <span>${open ? (nieuw ? `${nogOpen} Later verder? Klik op Opslaan als concept.` : `${nogOpen} Tot die tijd blijft de order een concept.`) : "Alles ingevuld."}</span></div>`;
   } else if (briefje) voet = `<div class="fase-voet">${briefje}</div>`;
   if (f.nr === 5 && o.vink.afgeleverd && o.heeftInruil) voet = `<div class="fase-voet">
       <a class="knop" href="briefje-handelsauto.html?id=${o.id}" target="_blank">Briefje handelsauto (A4)</a>
@@ -521,15 +546,19 @@ function teken() {
   const scroll = window.scrollY;
   const nieuweFase = vorigeGekozen !== gekozen;
   vorigeGekozen = gekozen;
-  const magVerwijderen = ik.rol === "manager" || (o.concept && ik.naam === o.verkoper);
+  const nieuw = nogNietOpgeslagen();
+  const magVerwijderen = nieuw || ik.rol === "manager" || (o.concept && ik.naam === o.verkoper);
+  /* fleetorder: dezelfde auto meerdere keren voor dezelfde klant (feedback Mark 2026-11-25) */
+  const magKopieren = !nieuw && !o.gewist && VERKOOP_ROLLEN.includes(ik.rol);
   const feit = (dt, dd) => `<div><dt>${dt}</dt><dd>${dd}</dd></div>`;
   const stappen = FASES.filter(f => faseVanToepassing(o, f.nr));
 
   hoofd.innerHTML = `
     <div class="order-kop">
       <a class="terug" href="${startpagina(ik.rol)}">${icoon("pijl-links", 16)}${MENU[MENU_PER_ROL[ik.rol][0]][1]}</a>
-      <div class="order-titel"><h1>${esc(klantNaam(o))}</h1>${o.concept ? pil("grijs", "Concept") : pil(status, klaar ? "Afgeleverd" : STATUS_TEKST[status])}
-        ${magVerwijderen ? `<button type="button" class="knop link verwijder" id="verwijderen">${o.concept ? "Concept" : "Order"} verwijderen</button>` : ""}</div>
+      <div class="order-titel"><h1>${esc(klantNaam(o))}</h1>${o.concept ? pil("grijs", nieuw ? "Niet opgeslagen" : "Concept") : pil(status, klaar ? "Afgeleverd" : STATUS_TEKST[status])}${o.fleet ? pil("grijs", "Fleetorder") : ""}
+        <span class="order-acties">${magKopieren ? `<button type="button" class="knop link" id="kopieren">Kopiëren voor fleetorder</button>` : ""}
+        ${magVerwijderen ? `<button type="button" class="knop link verwijder" id="verwijderen">${nieuw ? "Niet opslaan" : `${o.concept ? "Concept" : "Order"} verwijderen`}</button>` : ""}</span></div>
       <p class="order-sub">${esc([autoNaam(o) || "Model nog kiezen", o.auto.kenteken || (meldcode(o) ? "meldcode " + meldcode(o) : ""), o.type === "nieuw" ? "" : TYPES[o.type]].filter(Boolean).join(" · "))}</p>
       <dl class="feiten">
         ${feit("Verkoper", esc(o.verkoper))}
@@ -640,6 +669,64 @@ function factuurVenster() {
   dlg.showModal();
 }
 
+/* ---------- fleetorder: een order een aantal keer kopiëren (feedback Mark 2026-11-25) ----------
+   Dezelfde auto meerdere keren voor dezelfde klant. Elke kopie is een eigen concept met
+   dezelfde klant, auto, accessoires, premie en bedragen. Wat per auto verschilt, blijft leeg:
+   CarIt-ordernummer, chassisnummer, kenteken, inruil en alles wat al is afgevinkt. Het
+   contract is voor alle auto's hetzelfde en verwijst naar deze order. */
+function fleetKopieen(aantal) {
+  const groep = o.fleet || o.id;
+  const basis = Date.now();
+  const onzeker = btwControleNodig(o);
+  const kopie = x => JSON.parse(JSON.stringify(x));
+  for (let i = 0; i < aantal; i++) {
+    const k = {
+      id: `N${basis + i}`, ordernummer: "", concept: true, fleet: groep, type: o.type, voorraad: o.voorraad ?? null,
+      verkoper: o.verkoper, aangemaakt: nu(), levertijd: o.levertijd || "",
+      klant: kopie(o.klant || {}),
+      auto: { model: o.auto.model || "", uitvoering: o.auto.uitvoering || "", kleur: o.auto.kleur || "", phev: !!o.auto.phev },
+      accessoires: (o.accessoires || []).map(a => ({ naam: a.naam })),
+      werkplaatsregels: [...(o.werkplaatsregels || [])],
+      heeftInruil: false,
+      vink: {}, contact: [], opmerkingen: [],
+      log: [{ op: nu(), door: ik.naam, wat: `Gekopieerd van order ${o.ordernummer || o.id} voor een fleetorder` }]
+    };
+    for (const veld of ["mastercare", "ott", "ott_via", "bnp", "te_betalen", "te_betalen_excl", "te_betalen_incl", "zakelijk", "kanaal", "verkoopprijs", "heeftDeal", "opm_verkoop", "factuur_naar"])
+      if (o[veld] !== undefined) k[veld] = kopie(o[veld]);
+    if (o.premie) k.premie = kopie(o.premie);
+    if (o.heeftDeal && o.deal) k.deal = kopie(o.deal);
+    if (onzeker) k.btw_onzeker = true;
+    if (o.vink.contract) k.vink.contract = { door: ik.naam, op: nu(), fleetVan: o.vink.contract.fleetVan || o.id };
+    orders.push(k);
+  }
+  wijzig(() => { o.fleet = groep; }, `${aantal} ${aantal === 1 ? "kopie" : "kopieën"} gemaakt voor een fleetorder`);
+}
+
+function kopieVenster() {
+  const dlg = document.createElement("dialog");
+  dlg.className = "venster kopie-venster";
+  dlg.setAttribute("aria-labelledby", "kopie_titel");
+  dlg.innerHTML = `<div class="venster-kop"><h2 id="kopie_titel">Kopiëren voor een fleetorder</h2></div>
+    <p>Elke kopie wordt een eigen concept voor ${esc(klantNaam(o))}: zelfde ${esc(autoNaam(o) || "auto")}, accessoires, premie en bedragen. Ordernummer, chassisnummer, kenteken en inruil vul je per auto in.</p>
+    <div class="kopie-veld"><label class="veld-lbl" for="kopie_aantal">Hoeveel auto's komen erbij</label>
+      <input id="kopie_aantal" class="invoer" type="number" inputmode="numeric" min="1" max="25" value="1"></div>
+    <div class="venster-voet rij-knoppen"><button type="button" class="knop donker" id="kopie_maken">Kopieën maken</button>
+      <button type="button" class="knop" id="kopie_annuleren">Annuleren</button></div>`;
+  document.body.append(dlg);
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.querySelector("#kopie_annuleren").addEventListener("click", () => dlg.close());
+  dlg.querySelector("#kopie_maken").addEventListener("click", async e => {
+    const aantal = Math.round(Number(dlg.querySelector("#kopie_aantal").value));
+    if (!(aantal >= 1 && aantal <= 25)) { toast("Vul een aantal in van 1 tot en met 25."); return; }
+    e.target.disabled = true; e.target.textContent = "Kopiëren...";
+    fleetKopieen(aantal);
+    await wachtOpOpslaan();
+    dlg.close();
+    toast(`${aantal} ${aantal === 1 ? "concept" : "concepten"} gemaakt. Je vindt ze bovenaan het overzicht, elk met het label fleetorder.`, "groen");
+  });
+  dlg.showModal();
+}
+
 /* ---------- getekend contract: uploaden en openen ----------
    Het bestand gaat via aflever_bestand_opslaan naar de database (alleen eigen vestiging) en
    verdwijnt met de klantgegevens, 30 dagen na de aflevering. In de order staat alleen wie,
@@ -662,7 +749,10 @@ async function uploadBestand(key, bestand) {
   if (!BESTAND_TYPES.includes(bestand.type)) { toast("Upload een pdf, jpg of png. Een foto van de iPhone (heic) kun je eerst als pdf of jpg bewaren.", "rood"); return; }
   if (bestand.size > BESTAND_MAX) { toast(`Het bestand is ${(bestand.size / 1048576).toFixed(1).replace(".", ",")} MB. Maximaal 8 MB; scan het contract als pdf.`, "rood"); return; }
   uploadBezig = true;
-  toast("Contract uploaden...");
+  /* het bestand hoort bij een order in de database: een nieuwe order wordt daarom nu een concept */
+  const werdConcept = nogNietOpgeslagen();
+  vastleggen();
+  toast(werdConcept ? "Order opgeslagen als concept, contract uploaden..." : "Contract uploaden...");
   try {
     bewaar(orders);
     await wachtOpOpslaan();
@@ -679,13 +769,13 @@ async function uploadBestand(key, bestand) {
   }
 }
 
-async function openBestand(key, knop) {
+async function openBestand(key, knop, dossier = o.id) {
   /* het venster meteen openen, anders houdt de popupblokker het tegen na het wachten op de database */
   const venster = window.open("", "_blank");
   const tekst = knop.textContent;
   knop.disabled = true; knop.textContent = "Openen...";
   try {
-    const rij = (await rpc("aflever_bestand_ophalen", { p_token: sessieToken(), p_dossier: o.id, p_soort: key }))?.[0];
+    const rij = (await rpc("aflever_bestand_ophalen", { p_token: sessieToken(), p_dossier: dossier, p_soort: key }))?.[0];
     if (!rij) throw new Error("Het contract staat niet (meer) in de module");
     const bytes = Uint8Array.from(atob(rij.inhoud.replace(/\s/g, "")), c => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: rij.mime }));
@@ -719,14 +809,18 @@ hoofd.addEventListener("change", e => {
       return;
     }
     if (d.soort === "getal") w = w === "" ? "" : Number(w);
-    else if (d.soort === "bedrag") { const c = String(t.value).replace(/[^\d,]/g, "").replace(",", "."); w = c === "" ? "" : Number(c); }
+    else if (d.soort === "bedrag") w = leesBedrag(t.value);
+    /* een order zonder verkoper kan niet: terug naar wie er stond */
+    if (d.pad === "verkoper" && !w) { t.value = o.verkoper; return; }
     wijzig(() => {
       zet(o, d.pad, w);
       if (d.pad === "type" && w !== "nieuw") o.voorraad = null;
       if (d.pad === "type" && w === "nieuw") o.voorraad ||= "winkel";
       if (d.pad === "inruil.kenteken") { delete o.inruil.merk; delete o.inruil.model; delete o.inruil.rdw; }
       if (d.pad === "auto.model" && o.premie && o.premie.model !== w) delete o.premie;
-    }, `${d.label} gewijzigd`);
+      /* wie het bedrag zelf invult, vult het inclusief btw in: de controle is daarmee gedaan */
+      if (d.pad === "te_betalen" && w !== "") { o.te_betalen_incl = true; delete o.te_betalen_excl; delete o.btw_onzeker; }
+    }, d.pad === "verkoper" ? `Verkoper gewijzigd in ${w}` : `${d.label} gewijzigd`);
     if (d.pad === "auto.kenteken" && t.value && heeftTrekhaak(o) && !o.vink.witteplaat)
       toast(`Trekhaak op de order: ${persoonVanRol(o, "serviceadviseur")} krijgt direct de taak om de witte kentekenplaat te bestellen.`);
     /* merk en model van de inruil komen uit de open data van de RDW */
@@ -771,7 +865,7 @@ hoofd.addEventListener("click", e => {
     history.replaceState(null, "", `#fase-${d.naar}`);
     teken(); return;
   }
-  if (d.openBestand) { openBestand(d.openBestand, t); return; }
+  if (d.openBestand) { openBestand(d.openBestand, t, d.van || o.id); return; }
   if (d.janee) { wijzig(() => zet(o, d.janee, d.w === "1"), `${d.label}: ${d.w === "1" ? "ja" : "nee"}`); return; }
   if (d.vink) {
     if (actieGeblokt(d.vink)) { toast(actieGeblokt(d.vink)); return; }
@@ -859,11 +953,26 @@ hoofd.addEventListener("click", e => {
     wijzig(() => { o.afleverdatum = datum; o.aflevertijd = blok; }, `Wijziging afleverdatum naar de administratie: ${van} wordt ${naar}`);
     stuurVa("wijziging", van, naar).then(ok => ok && toast(`Wijziging naar VA gemaild: ${naar}. De werkplaats schuift mee.`, "groen"));
   }
+  if (t.id === "btw_klopt") { wijzig(() => { o.te_betalen_incl = true; delete o.btw_onzeker; }, `Toe te betalen bedrag bevestigd als inclusief btw: ${bedrag(o.te_betalen)}`); return; }
+  if (t.id === "kopieren") { kopieVenster(); return; }
+  if (t.id === "concept_opslaan") {
+    o.log.push({ op: nu(), door: ik.naam, wat: "Opgeslagen als concept" });
+    vastleggen();
+    toast("Opgeslagen als concept. Je vindt hem bovenaan het overzicht terug.", "groen");
+    teken(); return;
+  }
   if (t.id === "opslaan") {
     const open = openPunten(o, 1);
     if (open.length) { toast(`Nog open: ${open.slice(0, 3).map(p => eersteKlein(p.label)).join(", ")}${open.length > 3 ? ` en nog ${open.length - 3}` : ""}.`); return; }
+    vastleggen();
     wijzig(() => { delete o.concept; }, "Order opgeslagen");
     toast("Opgeslagen. De order staat nu in het overzicht.", "groen");
+  }
+  if (t.id === "verwijderen" && nogNietOpgeslagen()) {
+    if (onbewaardGewijzigd && !confirm("Deze order is nog niet opgeslagen. Wat je hebt ingevuld is dan weg. Toch weggaan?")) return;
+    onbewaardWeggooien();
+    location.href = startpagina(ik.rol);
+    return;
   }
   if (t.id === "verwijderen") {
     const wat = o.concept ? "het concept" : "de order";

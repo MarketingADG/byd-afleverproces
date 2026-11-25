@@ -89,9 +89,9 @@ function teken() {
     ["Nog te importeren", lopend.filter(o => o.type === "import" && !o.vink.binnen).length]
   ];
 
-  const perVerkoper = PERSONEN.filter(p => p.rol === "verkoper").map(p => {
-    const van = lopend.filter(o => o.verkoper === p.naam);
-    return { naam: p.naam, lopend: van.length, rood: van.filter(o => kaartStatus(o) === "rood").length,
+  const perVerkoper = verkopersMetOrders(orders).map(naam => {
+    const van = lopend.filter(o => o.verkoper === naam);
+    return { naam, lopend: van.length, rood: van.filter(o => kaartStatus(o) === "rood").length,
       contact: van.filter(o => contactTimer(o) || levertijdVoorbij(o)).length };
   });
 

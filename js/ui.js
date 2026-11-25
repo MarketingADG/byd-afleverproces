@@ -12,7 +12,31 @@ function esc(s) {
 function datumKort(iso) { if (!iso) return ""; const d = naarDatum(iso); return `${DAGEN[d.getDay()]} ${d.getDate()} ${MAANDEN[d.getMonth()]}`; }
 function datumLang(iso) { if (!iso) return ""; const d = naarDatum(iso); return `${d.getDate()}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`; }
 function tijdstip(ts) { return ts ? `${datumKort(ts.slice(0, 10))}, ${ts.slice(11, 16).replace(":", ".")}` : ""; }
-function bedrag(n) { return n == null || n === "" ? "" : "€ " + Number(n).toLocaleString("nl-NL"); }
+function bedrag(n) {
+  if (n == null || n === "") return "";
+  const g = Number(n);
+  return "€ " + g.toLocaleString("nl-NL", { minimumFractionDigits: Number.isInteger(g) ? 0 : 2, maximumFractionDigits: 2 });
+}
+/* Wat iemand in een bedragveld typt, als getal. De komma is het decimaalteken; een punt telt
+   ook als komma (feedback Mark 2026-11-25: "39719.74" werd 3.971.974). Alleen een punt met
+   precies drie cijfers erachter scheidt duizendtallen: "39.719" en "39.719,74" blijven wat
+   ze zijn, "39719.74" en "39.719.74" worden 39.719,74. */
+function leesBedrag(tekst) {
+  let s = String(tekst ?? "").replace(/[^\d.,-]/g, "");
+  const min = s.startsWith("-");
+  s = s.replace(/-/g, "");
+  if (!/\d/.test(s)) return "";
+  if (s.includes(",")) {
+    const delen = s.replace(/\./g, "").split(",");
+    s = delen.slice(0, -1).join("") + "." + delen[delen.length - 1];
+  } else {
+    const delen = s.split(".");
+    const laatste = delen[delen.length - 1];
+    s = delen.length > 1 && laatste.length !== 3 ? delen.slice(0, -1).join("") + "." + laatste : delen.join("");
+  }
+  const n = Number(s);
+  return isFinite(n) ? Math.round((min ? -n : n) * 100) / 100 : "";
+}
 function relatief(iso) {
   const n = dagenTot(iso);
   if (n === 0) return "vandaag"; if (n === 1) return "morgen"; if (n === -1) return "gisteren";
@@ -32,14 +56,13 @@ function persoonVanRol(o, rol) {
 }
 
 /* Wie mag een fase bewerken: de eigenaar, en de manager overal. Verkopers mogen ook
-   taken van de afleverspecialist doen (systeemuitleg, scherm Mijn taken); de
-   afleverspecialist neemt fase 3 en 5 over van de verkoper. */
+   taken van de afleverspecialist doen (systeemuitleg, scherm Mijn taken). De
+   afleverspecialist mag alles wat de verkoop mag, ook fase 1 en ook in orders van andere
+   verkopers (feedback Mark 2026-11-25; daarvoor alleen fase 3 en 5). */
 function magBewerken(persoon, o, nr) {
   const rol = faseInfo(nr).eigenaar;
   if (persoon.rol === "manager") return true;
-  if (faseInfo(nr).overname === persoon.rol) return true;
-  if (rol === "verkoper") return persoon.rol === "verkoper";
-  if (rol === "afleverspecialist") return persoon.rol === "afleverspecialist" || persoon.rol === "verkoper";
+  if (rol === "verkoper" || rol === "afleverspecialist") return persoon.rol === "verkoper" || persoon.rol === "afleverspecialist";
   return persoon.rol === rol;
 }
 
@@ -126,7 +149,8 @@ function actiefVanPagina() {
    Is er nog geen onthouden rol (eerste keer na inloggen), dan gebeurt er niets. */
 function vroegeKopbalk() {
   try {
-    if (document.querySelector(".zijmenu")) return;
+    /* de printbriefjes hebben geen <main> en horen geen menu te krijgen */
+    if (document.querySelector(".zijmenu") || !document.querySelector("main")) return;
     const ik = JSON.parse(sessionStorage.getItem("byd-ik") || "null");
     if (!ik || !MENU_PER_ROL[ik.rol]) return;
     const actief = actiefVanPagina();
@@ -312,6 +336,7 @@ function _laadPaginaScript(src) {
 }
 
 addEventListener("popstate", () => {
+  if (typeof onbewaardWeggooien === "function") onbewaardWeggooien();
   if (ROUTEERBAAR.has(paginaNaam(location.pathname))) _toonPagina(location.href, false);
   else location.reload();
 });
@@ -325,6 +350,11 @@ document.addEventListener("click", e => {
   if (!ROUTEERBAAR.has(paginaNaam(url.pathname))) return;                 /* order, briefje: gewoon laden */
   if (paginaNaam(url.pathname) === paginaNaam(location.pathname) && url.search === location.search) return;
   e.preventDefault();
+  /* een nieuwe order die nog niet is opgeslagen, verdwijnt als je wegklikt: eerst vragen */
+  if (typeof ONBEWAARD !== "undefined" && ONBEWAARD.size) {
+    if (onbewaardGewijzigd && !confirm("Deze order is nog niet opgeslagen. Ga je weg, dan is wat je hebt ingevuld weg. Toch weggaan?")) return;
+    onbewaardWeggooien();
+  }
   _toonPagina(url.href, true);
 }, true);
 
